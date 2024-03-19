@@ -29,7 +29,7 @@ import opstools.utilidades as ut (or any other name)
 
 import opstools.Lib_frag as ut (or any other name)
 
-The full documentation is available on the GitHub website: https://github.com/odarroyo/opstools 
+#### You can find examples of scripts that use the library on my other GitHub repository: https://github.com/odarroyo/openseespy_starting_tutorials
 
 ## 2D Analysis functions
 
