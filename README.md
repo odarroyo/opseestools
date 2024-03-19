@@ -9,6 +9,10 @@ It also includes another useful tools for processing results and creating script
 
 pip install opseestools
 
+## Examples of use
+
+#### You can find examples of scripts that use the library on my other GitHub repository: https://github.com/odarroyo/openseespy_starting_tutorials
+
 ## Description and use 
 
 ops tools comprises a set of functions in three categories:
@@ -28,8 +32,6 @@ import opstools.utilidades as ut (or any other name)
 4) A library to calculate and plot fragility functions. You can import it as:
 
 import opstools.Lib_frag as ut (or any other name)
-
-#### You can find examples of scripts that use the library on my other GitHub repository: https://github.com/odarroyo/openseespy_starting_tutorials
 
 ## 2D Analysis functions
 
