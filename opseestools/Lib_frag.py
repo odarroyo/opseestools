@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt                                                 
 # Ajuste de distribuciones
 # ==============================================================================
 from scipy import stats, optimize
-
+import pandas as pd
 
 #%% CURVAS DE FRAGILIDAD AJUSTE FUNCIÓN LOGNORMAL
 #-----Example calculations to demonstrate the use of fragility fitting
@@ -114,3 +114,43 @@ def values_in_bins(data, bins='fd'):
     bins_indices = [np.array(bin) for bin in bins_indices]
     
     return bins_values, bins_indices, bin_midpoints, bin_counts, bin_edges
+
+def calculate_fragility(df,limit_name,limits,IM_column,EDP_column,plot=True):
+    ''' Function to calculate fragility based on a dataframe.
+    The dataframe must have a column named bin which containst the values for
+    the intensity measure. It also must have a column that you 
+    
+    Inputs:
+        df: dataframe
+        limit_name: how you want to name your limits
+        limits: values to define the limits
+        column_limit: dataframe column to check the exceedance of the values in limits
+        plot: by default is True, meaning that it returns the plots. Set to false if you do not want them
+    
+    Outputs:
+        thetas: median of the lognormal distribution
+        betas: deviation of the lognormal distribution
+    
+    '''
+    ngm = df[IM_column].value_counts().to_numpy()
+    
+    for i in range(len(limits)):
+        df[limit_name[i]] = df[EDP_column] > limits[i]
+
+    true_counts = df.groupby(IM_column)[limit_name].apply(lambda x: x.sum()).reset_index()
+    thetas, betas = [],[]
+    
+    for i,lim in enumerate(limit_name):
+        theta,beta = fn_mle_pc(true_counts[IM_column], ngm, true_counts[lim])
+        thetas.append(theta)
+        betas.append(beta)
+        if plot==True:
+            plt.plot(true_counts[IM_column],true_counts[lim]/ngm[i],'x')
+            plotfrag(theta, beta)
+        
+    if plot==True:
+        plt.xlabel('Sa(g)')
+        plt.ylabel('Probability')
+        plt.show()
+    
+    return thetas,betas
