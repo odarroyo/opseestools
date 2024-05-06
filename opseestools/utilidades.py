@@ -308,6 +308,7 @@ def newmarkL(T,xi,GM,delta_t,betha = 1/6, gamma = 1/2 ,u0 = 0,v0 = 0,P0 = 0):
 
 
 def newmarkLA(T,xi,GM,delta_t,flag = 'all',betha = 1/6, gamma = 1/2 ,u0 = 0,v0 = 0,P0 = 0):
+    '''
     #T: periodo de la estrutura
     #xi: porcentaje de amortiguamiento crítico
     #GM: registro en unidades consistentes
@@ -315,7 +316,7 @@ def newmarkLA(T,xi,GM,delta_t,flag = 'all',betha = 1/6, gamma = 1/2 ,u0 = 0,v0 =
     #flag: recibe 'max' cuando solo se deseen los valores máximos de tiempo, desplazamiento, velocidad y aceleracion absolutas.
     #betha, gamma: parámetros del Newmark. Por defecto utiliza método lineal de interpolación
     #u0,v0,a0: condiciones iniciales de desplazamiento velocidad y aceleración
-    
+    '''
     
     w = 2*np.pi/T
     m = 1.0
@@ -377,11 +378,11 @@ def spectrum2(GM,delta_t,xi):
 
 def spectrum4(GM,dt,xi=0.05,rango=[0.02,3.0],N=100):
     ''' está basado en la rutina de OpenSees
-        GM: el registro en .txt. Por ejemplo 'GM01.txt'
-        dt: dt del registro
-        xi: porcentaje del amortiguamiento crítico
-        rango: rango de periodos en un vector
-        N: número de puntos
+        \n GM: el registro en .txt. Por ejemplo 'GM01.txt'
+        \n dt: dt del registro
+        \n xi: porcentaje del amortiguamiento crítico
+        \n rango: rango de periodos en un vector
+        \n N: número de puntos
            
     '''
     m = 1
@@ -411,6 +412,49 @@ def spectrum4(GM,dt,xi=0.05,rango=[0.02,3.0],N=100):
 # T,Sa = espectroNSR(0.15, 0.2, 2.1, 3.2, 1.0)
 
 # plt.plot(T,Sa)
+
+def creategrid(xloc,yloc):
+    ''' funcion para crear grilla de puntos en OpenSeesPy
+        \n xloc: coordenadas de x
+        \n yloc: coordenadas de y
+        La función devuelve los nodos comenzando en 1000,1001... para la primera columna, luego 2000,2001...
+    '''
+    ny = len(yloc)
+    nx = len(xloc)
+    # ----------------------Crear nodos de la estructura----------------------|
+    for i in range(nx):
+        for j in range(ny):
+            nnode = 1000*(i+1)+j
+            node(nnode,xloc[i],yloc[j])
+
+def BuildISection(secID,matID,d,tw,bf,tf,nfdw,nftw,nfbf,nftf):
+    ''' función para crear una sección en forma de I. 
+        \n Recibe:
+        \n secID: ID para la sección a crear
+        \n matID: material de la sección
+        \n d: altura total de la sección
+        \n tw: espesor del alma
+        \n bf: ancho de la aleta
+        \n tf: espesor de la aleta
+        \n nfdw, nftw, nfbf, nftf: fibras a lo largo de la longitud del alma, ancho del alma, ancho y espesor de la aleta
+    '''
+    
+    
+    dw = d-2*tf
+    y1 = -d/2
+    y2 = -dw/2 
+    y3 = dw/2
+    y4 = d/2 
+    
+    z1 =-bf/2
+    z2 =-tw/2 
+    z3 = tw/2 
+    z4 = bf/2 
+    GJ = 1e6
+    section('Fiber',secID,'-GJ',GJ)
+    patch('quad',matID,nfbf,nftf,y1,z4,y1,z1,y2,z1,y2,z4)
+    patch('quad',matID,nftw,nfdw,y2,z3,y2,z2,y3,z2,y3,z3)
+    patch('quad',matID,nfbf,nftf,y3,z4,y3,z1,y4,z1,y4,z4)
 
 def plot_Wall_T_BE(matConf, matInco, bW, bF, BEU, BED, BEL, BER, Lww, LwF, nMax, nMin):
     
@@ -457,6 +501,45 @@ def plot_Wall_T_BE(matConf, matInco, bW, bF, BEU, BED, BEL, BER, Lww, LwF, nMax,
     plt.gca().invert_xaxis()
     
 def dackal(Fyy, Fuu, eyy, ehh, euu, Lb, Db):
+    #Fy = esfuerzo de fluencia del acero [MPa]
+    #Fu = esfuerzo último del acero [MPa]
+    #ey, eh, eu = deformaciones unitarias del acero
+    #L = Espaciamiento entre estribos (Longitud libre para pandearse) [mm]
+    #D = Diámetro de la barra [mm]
+    fy = Fyy
+    fu = Fuu
+    fh = fy+0.01
+    ey = eyy
+    eu = euu
+    eh = ehh
+    L = Lb
+    D = Db
+    alfa = 0.75
+    efracture = 0.05
+    espalling = 0.004
+    sigma_u = 0.2*fy
+    p1 = [eh,eu]
+    p2 = [fh,fu]
+    Es = fy/ey
+    m = -0.02*Es
+    eas = np.max([(55-2.3*np.sqrt(fy/100)*L/D)*ey,7*ey])
+    sigma_l = np.interp(eas,p1,p2)
+    sigma_as = np.max([alfa*(1.1-0.016*np.sqrt(fy/100)*L/D)*sigma_l,0.2*fy])
+    eu_d = (sigma_u-sigma_as)/m + eas
+    sigma_f = np.interp(efracture,p1,p2)
+    sigma_s = np.interp(espalling,p1,p2)
+    # strain = [-eu_d,-espalling,-ey,0.0,ey,efracture,eu]
+    # stress = [-sigma_u,-sigma_s,-fy,0.0, fy,sigma_f, sigma_u]
+    strain = [-eu_d,-eas,-espalling,-ey,0.0,ey,eh,efracture,eu]
+    stress = [-sigma_u,-sigma_as,-sigma_s,-fy,0.0, fy,fh,sigma_f, sigma_u]
+
+    s = [fy*1000,fh*1000,sigma_f*1000, sigma_u*1000,-fy*1000,-sigma_s*1000,-sigma_as*1000,-sigma_u*1000]
+    e = [ey,eh,efracture,eu,-ey,-espalling,-eas,-eu_d]
+ 
+    
+    return s, e
+
+def dhakal(Fyy, Fuu, eyy, ehh, euu, Lb, Db):
     #Fy = esfuerzo de fluencia del acero [MPa]
     #Fu = esfuerzo último del acero [MPa]
     #ey, eh, eu = deformaciones unitarias del acero
