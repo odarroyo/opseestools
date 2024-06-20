@@ -10,9 +10,32 @@ import numpy as np
 from scipy.signal import argrelextrema
 from scipy.stats import gmean
 from scipy.fft import fft, ifft
-
+from scipy.integrate import cumulative_trapezoid
 
 def MomentCurvature(secTag, axialLoad, maxK, numIncr=300):
+    '''
+    
+    The original script is available in the OpenSees Wiki. Cumputes the moment curvature of a section
+    
+    Parameters
+    ----------
+    secTag : int
+        tag of the section.
+    axialLoad : float
+        applied axial load.
+    maxK : float
+        max curvature.
+    numIncr : int, optional
+        number of steps for the calculation. The default is 300.
+
+    Returns
+    -------
+    M : list
+        moments of the section.
+    curv : list
+        curvature.
+
+    '''
     # Script tomado de la librería de OpenSeespy de la web
     # secTag es el tag de la sección
     # axialLoad es la carga axial de la sección
@@ -96,6 +119,26 @@ def MomentCurvature(secTag, axialLoad, maxK, numIncr=300):
     return M,curv
 
 def testMaterial(matTag,displ):
+    '''
+    
+
+    Parameters
+    ----------
+    matTag : int
+        tag of the material.
+    displ : list
+        list with the peaks of the displacement cycles.
+
+    Returns
+    -------
+    Disp : array
+        DESCRIPTION.
+    F : TYPE
+        DESCRIPTION.
+
+    '''
+    
+    
     # wipe()
     
     model('basic','-ndm',2,'-ndf',3)
@@ -164,6 +207,56 @@ def testMaterial(matTag,displ):
     return Disp,F
     
 def BuildRCSection(ID,HSec,BSec,coverH,coverB,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot,barAreaInt,nfCoreY,nfCoreZ,nfCoverY,nfCoverZ):
+    '''
+    Define a procedure which generates a rectangular reinforced concrete section with one layer of steel at the top & bottom, skin reinforcement and a confined core.
+	by: Silvia Mazzoni, 2006, adapted from Michael H. Scott, 2003
+
+    Parameters
+    ----------
+    ID : int
+        unique ID for the section.
+    HSec : float
+        depth of section, along local-y axis.
+    BSec : float
+        width of section, along local-z axis.
+    coverH : float
+        cover along the section height.
+    coverB : float
+        cover along the section width.
+    coreID : int
+        material tag for the core patch.
+    coverID : int
+        material tag for the cover patches.
+    steelID : int
+        material tag for the reinforcing steel.
+    numBarsTop : int
+        DESCRIPTION.
+    barAreaTop : float
+        cross-sectional area of each reinforcing bar in top layer
+    numBarsBot : int
+        number of reinforcing bars in the bottom layer
+    barAreaBot : float
+        cross-sectional area of each reinforcing bar in bottom layer
+    numBarsIntTot : int
+        TOTAL number of reinforcing bars on the intermediate layers, symmetric about z axis and 2 bars per layer-- needs to be an even integer
+    barAreaInt : float
+        cross-sectional area of each reinforcing bar in intermediate layer
+    nfCoreY : int
+        number of fibers in the core patch in the y direction
+    nfCoreZ : int
+        number of fibers in the core patch in the z direction
+    nfCoverY : int
+        number of fibers in the cover patches with long sides in the y direction
+    nfCoverZ : int
+        number of fibers in the cover patches with long sides in the z direction
+
+    Returns
+    -------
+    Section defined in your model
+
+    '''
+    
+    
     # Define a procedure which generates a rectangular reinforced concrete section
 	# with one layer of steel at the top & bottom, skin reinforcement and a 
 	# confined core.
@@ -215,6 +308,30 @@ def BuildRCSection(ID,HSec,BSec,coverH,coverB,coreID,coverID,steelID,numBarsTop,
         
 
 def e20Lobatto2(Gfc,Lel,npint,fc,E,e0):
+    '''
+    Calculates the ultimate strain for a concrete material applying regularization based on the constant fracture energy proposed by Coleman and Spacone
+
+    Parameters
+    ----------
+    Gfc : float
+        facture energy in N/mm.
+    Lel : float
+        element length.
+    npint : int
+        number of integration points.
+    fc : float
+        concrete compressive strength in MPa.
+    E : float
+        concrete modulus of elasticity strength in MPa..
+    e0 : float
+        strain associated to fc.
+
+    Returns
+    -------
+    e20 : float
+        ultimate strain corresponding to 0.2fc according to Coleman and Spacone.
+
+    '''
     
     # TODO TIENE QUE ESTAR EN UNIDADES DE N y mm
     # Gfc entra en N/mm: Energía de fractura
@@ -242,6 +359,22 @@ def e20Lobatto2(Gfc,Lel,npint,fc,E,e0):
 
 
 def nse(pred,obs):
+    '''
+    Calculates the normalized nash sutcliffe efficiency index
+
+    Parameters
+    ----------
+    pred : numpy array
+        time series predicted by the numerical model 
+    obs : numpy array
+        observed time series (for instance, experimental test).
+
+    Returns
+    -------
+    ns : float
+        normalized nash-sutcliffe index.
+
+    '''
     # calcula el índice normalizado de Nash-Sutcliffe
     # pred es la predicción numérica
     # obs es el ensayo
@@ -254,6 +387,22 @@ def nse(pred,obs):
 
 
 def kge(pred,obs):
+    '''
+    Calculates the Kling-Gupta efficienty index
+
+    Parameters
+    ----------
+    pred : numpy array
+        time series predicted by the numerical model 
+    obs : numpy array
+        observed time series (for instance, experimental test).
+
+    Returns
+    -------
+    kge : float
+        Kling-Gupta index.
+
+    '''
     # calcula el índice de Kling Gupta
     # pred es la predicción numérica
     # obs es el ensayo
@@ -269,7 +418,7 @@ def kge(pred,obs):
     return kge
 
 
-def newmarkL(T,xi,GM,delta_t,betha = 1/6, gamma = 1/2 ,u0 = 0,v0 = 0,P0 = 0):
+def newmarkL(T,xi,GM,delta_t,betha = 1/4, gamma = 1/2 ,u0 = 0,v0 = 0,P0 = 0):
     #T: periodo de la estrutura
     #xi: porcentaje de amortiguamiento crítico
     #GM: registro en unidades consistentes
@@ -307,15 +456,16 @@ def newmarkL(T,xi,GM,delta_t,betha = 1/6, gamma = 1/2 ,u0 = 0,v0 = 0,P0 = 0):
     return Tiempo,Desplz,Vel,Acel
 
 
-def newmarkLA(T,xi,GM,delta_t,flag = 'all',betha = 1/6, gamma = 1/2 ,u0 = 0,v0 = 0,P0 = 0):
+def newmarkLA(T,xi,GM,delta_t,flag = 'all',betha = 1/4, gamma = 1/2 ,u0 = 0,v0 = 0,P0 = 0):
     '''
-    #T: periodo de la estrutura
-    #xi: porcentaje de amortiguamiento crítico
-    #GM: registro en unidades consistentes
-    #delta_t: delta de tiempo del registro
-    #flag: recibe 'max' cuando solo se deseen los valores máximos de tiempo, desplazamiento, velocidad y aceleracion absolutas.
-    #betha, gamma: parámetros del Newmark. Por defecto utiliza método lineal de interpolación
-    #u0,v0,a0: condiciones iniciales de desplazamiento velocidad y aceleración
+    Calculates the response of a SDOF based on the Newmark method
+    \n T: period of SDOF
+    \n xi: percent of critical damping
+    \n GM: ground motion acceleration. use consistent units
+    \n delta_t: dt of the record
+    \n flag: use 'max' to obtain maximum values of displacement, velocity and absolute acceleration
+    \n betha, gamma: parameters of Newmark Method. 
+    \n u0,v0,a0: initial conditions for displacement, velocity and acceleration
     '''
     
     w = 2*np.pi/T
@@ -376,8 +526,8 @@ def spectrum2(GM,delta_t,xi):
     return T,Sa
 
 
-def spectrum4(GM,dt,xi=0.05,rango=[0.02,3.0],N=100):
-    ''' está basado en la rutina de OpenSees
+def spectrum4(GM,dt,xi=0.05,rango=[0.02,3.0],N=300):
+    ''' Calculates the Sa spectrum for a record
         \n GM: el registro en .txt. Por ejemplo 'GM01.txt'
         \n dt: dt del registro
         \n xi: porcentaje del amortiguamiento crítico
@@ -611,10 +761,24 @@ def Sa_avg(T,Sa,T2 = np.linspace(0.02,3,299)):
 
 
 def EAF(t,a):
-    '''Función para construir el espectro de amplitud de fourier
-    t es el tiempo del registro
-    a es el registro (acelerograma)
     '''
+    Parameters
+    ----------
+    t : numpy array
+        array with the time of the ground motion.
+    a : numpy array
+        array with the ground motion acceleration.
+
+    Returns
+    -------
+    T : numpy array
+        array with the periods.
+    A:  numpy array
+        array with the fourier amplitud.
+
+    '''
+    
+    
     N = len(a)
     td = t[-1]
     # dt = td/N
@@ -632,3 +796,32 @@ def EAF(t,a):
     T = 2*np.pi*np.reciprocal(W[1::])
     # F = W/(2*np.pi)
     return T,A[1::]
+
+
+def cumAI(tiempo,sismo1,plot=1,cum=[0.05,0.95]):
+    '''  
+    Parameters
+    ----------
+    tiempo : time of the seismic record
+    sismo1 : history of accelerations
+    plot : optional
+        Select 1 if you want the plot. The default is 1.
+    cum : optional
+        Range of the . The default is [0.05,0.95].
+
+    Returns
+    -------
+    a2 : cumulative of the arias intensity.
+    t1 : start and end time where the record is between the percentages specified in cum.
+
+    '''
+  
+    IA = np.pi/(2)*np.trapz(sismo1**2,tiempo)
+    a = np.pi/(2)*cumulative_trapezoid(sismo1**2,tiempo)/IA
+    a2 = np.hstack((0,a))
+    t1 = np.interp(cum, a2, tiempo)
+    if plot == 1:
+        plt.plot(tiempo,a2)
+        plt.plot(t1,[0.05,0.95],'ro')
+        plt.show()
+    return a2,t1

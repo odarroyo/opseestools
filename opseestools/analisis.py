@@ -95,9 +95,36 @@ def pushover(Dmax,Dincr,IDctrlNode,IDctrlDOF):
                 continue
             
 def pushover2(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
+    '''
+    Function to calculate the pushover
+
+    Parameters
+    ----------
+    Dmax : float
+        Maximum displacement of the pushover.
+    Dincr : float
+        Increment in the displacement.
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    norm : list, optional
+        List that includes the roof displacement and the building weight to normalize the pushover and display the roof drift vs V/W plot. The default is [-1,1].
+    Tol : float, optional
+        Norm tolerance. The default is 1e-8.
+
+    Returns
+    -------
+    techo : numpy array
+        Numpy array with the roof displacement recorded during the Pushover.
+    V : numpy array
+        Numpy array with the base shear (when using an unitary patter) recorded during the Pushover. If pattern if not unitary it returns the multiplier
+
+    '''
+    
     
     # creación del recorder de techo y definición de la tolerancia
-    recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
+    # recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
     maxNumIter = 10
     
       
@@ -174,18 +201,50 @@ def pushover2(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
 
 #%% ================================ PUSHOVER CON REMOVAL =================================
 
-def pushover2R(Dmax,Dincr,IDctrlNode,IDctrlDOF,columns,beams,ele,der,nodes_control,elements,norm=[-1,1],Tol=1e-8):
-    # Dmax: Deriva máxima de techo --> Altura del edificio*0.05
-    # Dincr: Deriva incremental 
-    # IDctrlNode: Nodo de control
-    # IDctrlDOF: 1
-    # columns: Tag de las columnas
-    # beams: Tag de las vigas
-    # ele: Tag elementos que componen el muro (puntales)
-    # der: Deriva máxima de cada muro. Despues de ese valor se rompe
-    # nodes_control: Nodos pushover
-    # elements: Tag columnas del primer piso para obtener fuerzas locales
+def pushover2R(Dmax,Dincr,IDctrlNode,IDctrlDOF,ele,der,nodes_control,elements,norm=[-1,1],Tol=1e-8):
     
+    '''
+    Function that calculates the pushover, recording information about beams, columns and infills. Allows the removal of infills.
+    
+    
+    Inputs:
+    -----------------------
+    
+    Dmax: Maximum displacement of the pushover.
+    
+    Dincr: Increment in the displacement.
+    
+    IDctrlNode: control node during the pushover
+    
+    IDctrlDOF: DOF for the displacement.
+     
+    ele: tags of diagonal strut elements of the walls. Input them pair-wise for the walls, i.e., the two of each walls at the time.
+    
+    der: limit drift for each wall
+    
+    nodes_control: control nodes to record information. Input one per floor in order to get inter-story drifts. Otherwise you will get an error.
+    
+    elements: element tags to record forces (columns and beams)
+    
+    Outputs:
+    -----------------------
+    techo: Numpy array with the roof displacement recorded during the Pushover.
+    
+    V:  Numpy array with the base shear (when using an unitary patter) recorded during the Pushover. If pattern if not unitary it returns the multiplier
+    
+    Eds: Numpy array with the forces in the elements (columns and beams). The order is determined by the order used in the input variable elements. The array has three dimensions. The first one is the element, the second one the pushover instant and the third one is the DOF
+    
+    f_puntalA: Numpy array with the forces in the struts (odds)
+    
+    f_puntalB: Numpy array with the forces in the struts (even)
+    
+    node_disp: Numpy array with displacements in the DOF specified in IDctrlDOF, of the nodes defined in the input variable nodes_control.
+    
+    drift: Numpy array with the interstory drif of each building story at each pushover instant. Columns are the nodes and rows are pushover instants.
+    
+    unicos2: Numppy arrays that indicates the pushover instants where struts are present.
+    
+    '''
     maxNumIter = 10                                                             # Máximo número de iteraciones
     
     # ------------------- Configuración básica del análisis -------------------
@@ -289,17 +348,71 @@ def pushover2R(Dmax,Dincr,IDctrlNode,IDctrlDOF,columns,beams,ele,der,nodes_contr
 #%%Pushover con removal, considernado rotaciones y deformaciones unitarias 
 #En este es importante cambiar las fibras en donde se quiere guardar registro
 def pushover2R_Rot_def(Dmax,Dincr,IDctrlNode,IDctrlDOF,columns,beams,ele,der,nodes_control,elements,id_s,id_c,norm=[-1,1],Tol=1e-8):
-    # Dmax: Deriva máxima de techo --> Altura del edificio*0.05
-    # Dincr: Deriva incremental 
-    # IDctrlNode: Nodo de control
-    # IDctrlDOF: 1
-    # columns: Tag de las columnas
-    # beams: Tag de las vigas
-    # ele: Tag elementos que componen el muro (puntales)
-    # der: Deriva máxima de cada muro. Despues de ese valor se rompe
-    # nodes_control: Nodos pushover
-    # elements: Tag columnas del primer piso para obtener fuerzas locales
+    '''
+    Performs a pushover extracting rotations, element forces, drift ratios, node displacements.
+
+    Parameters
+    ----------
+    Dmax : float
+        Maximum displacement of the pushover.
+    Dincr : float
+        Increment in the displacement.
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    columns : list
+        List with the column tags to record information. Information will be recorded in the same order as input.
+    beams : list
+        List with the beam tags to record information. Information will be recorded in the same order as input..
+    ele : list
+        tags of diagonal strut elements of the walls. Input them pair-wise for the walls, i.e., the two of each walls at the time.
+    der : float
+        limit drift for each wall
+    nodes_control : list
+        nodes to compute displacements and inter-story drift. You must input one per floor, otherwise you'll get an error..
+    elements : list
+        beam and column elements in one single list.
+    id_s : int
+        ID of the steel material.
+    id_c : int
+        ID of the concrete material.
+    norm : list, optional
+        List that includes the roof displacement and the building weight to normalize the pushover and display the roof drift vs V/W plot. The default is [-1,1].
+    Tol : float, optional
+        Norm tolerance. The default is 1e-8.
+
+    Returns
+    -------
+    techo : float
+        Numpy array with the roof displacement recorded during the Pushover..
+    V : float
+        Numpy array with the base shear (when using an unitary patter) recorded during the Pushover. If pattern if not unitary it returns the multiplier.
+    Eds : float
+        Numpy array with the forces in the elements (columns and beams). The order is determined by the order used in the input variable elements. The array has three dimensions. The first one is the element, the second one the pushover instant and the third one is the DOF.
+    f_puntalA : float
+        Numpy array with the forces in the struts (odds).
+    f_puntalB : float
+        Numpy array with the forces in the struts (even).
+    node_disp : float
+        Numpy array with displacements in the DOF specified in IDctrlDOF, of the nodes defined in the input variable nodes_control..
+    drift : float
+        Numpy array with the interstory drif of each building story at each pushover instant. Columns are the nodes and rows are pushover instants..
+    unicos2 : float
+        Numppy arrays that indicates the pushover instants where struts are present..
+    Prot_cols : float
+        Numpy array with the rotation at the columns specified in columns.
+    Prot_beams : float
+        Numpy array with the rotation at the columns specified in columns.
+    fiber_s : float
+        Numpy array with the stress at steel at the columns specified in columns.
+    fiber_c : float
+        Numpy array with the stress at steel at the columns specified in columns.
+
+
     
+    '''
+     
     maxNumIter = 10                                                             # Máximo número de iteraciones
     
     # ------------------- Configuración básica del análisis -------------------
@@ -425,8 +538,39 @@ def pushover2R_Rot_def(Dmax,Dincr,IDctrlNode,IDctrlDOF,columns,beams,ele,der,nod
 
 def pushover2Rot(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
     
+    '''
+    Parameters
+    ----------
+    Dmax : float
+        Maximum displacement of the pushover.
+    Dincr : float
+        Increment in the displacement.
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    elements : list
+        beam and column elements in one single list to record rotations.
+
+    norm : list, optional
+        List that includes the roof displacement and the building weight to normalize the pushover and display the roof drift vs V/W plot. The default is [-1,1].
+    Tol : float, optional
+        Norm tolerance. The default is 1e-8.
+
+    Returns
+    -------
+    techo : float
+        Numpy array with the roof displacement recorded during the Pushover..
+    V : float
+        Numpy array with the base shear (when using an unitary patter) recorded during the Pushover. If pattern if not unitary it returns the multiplier.   
+    PRot : float
+        Numpy array with the rotation at the specified elements.
+    
+    '''
+    
+    
     # creación del recorder de techo y definición de la tolerancia
-    recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
+    # recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
     maxNumIter = 10
     
       
@@ -507,15 +651,38 @@ def pushover2Rot(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
     return techo, V, Prot
 
 def pushover2D(Dmax,Dincr,IDctrlNode,IDctrlDOF,nodes_control,norm=[-1,1],Tol=1e-8):
-    '''Hace un pushover de la estructura extrayendo las derivas en los nodos indicados \n
-    Los argumentos de entrada son: \n
-    Dmax: desplazamiento objetivo \n
-    Dincr: incremento de desplazamiento \n
-    IDctrlNode: nodo de control del pushover\n
-    IDctrlDOF: grado de libertad del pushover\n
-    nodes_control: de cada piso para grabar las derivas\n
-    norm: recibe un vector con la altura y el peso para normalizar\n
-    Tol: tolerancia del análisis'''
+    '''
+    Performs a pushover analysis extracting the inter-story drifts
+    
+    Parameters
+    ----------
+    Dmax : float
+        Maximum displacement of the pushover.
+    Dincr : float
+        Increment in the displacement.
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    nodes_control : list
+        nodes to compute displacements and inter-story drift. You must input one per floor, otherwise you'll get an error.
+    
+    norm : list, optional
+        List that includes the roof displacement and the building weight to normalize the pushover and display the roof drift vs V/W plot. The default is [-1,1].
+    Tol : float, optional
+        Norm tolerance. The default is 1e-8.
+
+    Returns
+    -------
+    techo : float
+        Numpy array with the roof displacement recorded during the Pushover..
+    V : float
+        Numpy array with the base shear (when using an unitary patter) recorded during the Pushover. If pattern if not unitary it returns the multiplier.
+    drift : float
+        Numpy array with the interstory drif of each building story at each pushover instant. Columns are the nodes and rows are pushover instants..
+   
+        
+    '''
     # creación del recorder de techo y definición de la tolerancia
     # recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
     maxNumIter = 10
@@ -600,14 +767,33 @@ def pushover2D(Dmax,Dincr,IDctrlNode,IDctrlDOF,nodes_control,norm=[-1,1],Tol=1e-
 
 
 def pushover2C(displ,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-4):
-    '''Hace un Pushover Cíclico de una estructura. Recibe los siguientes argumentos: \n
-        displ: desplazamientos partiendo de cero a los cuales deberá llegar el Pushover \n
-        Dincr: incremento de desplazamiento \n
-        IDctrlNode: nodo de control de la estructura para monitorear el desplazamiento \n
-        IDctrlDOF: grado de libertad del nodo donde se controlará el desplazamiento \n
-        norm: vector que recibe la altura y el peso de la estructura. Por defecto no normaliza \n
-        Tol: tolerancia del análisis. Por defecto está en 1e-4 porque utiliza NormUnbalance
     '''
+    Performs a cyclic pushover analysis of the structure.
+
+    Parameters
+    ----------
+    displ : list
+        List with the peak displacement of the cycles of the pushover.
+    Dincr : float
+        Displacement increment.
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    nodes_control : list
+        nodes to compute displacements and inter-story drift. You must input one per floor, otherwise you'll get an error.
+    Tol : float, optional
+        Norm tolerance. The default is 1e-8.
+
+    Returns
+    -------
+    techo : float
+        Numpy array with the roof displacement recorded during the Pushover..
+    V : float
+        Numpy array with the base shear (when using an unitary patter) recorded during the Pushover. If pattern if not unitary it returns the multiplier.
+
+    '''
+
     # recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
     maxNumIter = 10
     
@@ -765,8 +951,37 @@ def pushover2MP(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
 
 def pushover2T(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
     
+    '''
+    Function to calculate the pushover and the building period during this one.
+
+    Parameters
+    ----------
+    Dmax : float
+        Maximum displacement of the pushover.
+    Dincr : float
+        Increment in the displacement.
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    norm : list, optional
+        List that includes the roof displacement and the building weight to normalize the pushover and display the roof drift vs V/W plot. The default is [-1,1].
+    Tol : float, optional
+        Norm tolerance. The default is 1e-8.
+
+    Returns
+    -------
+    techo : numpy array
+        Numpy array with the roof displacement recorded during the Pushover.
+    V : numpy array
+        Numpy array with the base shear (when using an unitary pattern) recorded during the Pushover. If pattern is not unitary it returns the multiplier
+    T : numpy array
+        Numpy array with the building period recorded during the Pushover.
+    '''
+    
+    
     # creación del recorder de techo y definición de la tolerancia
-    recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
+    # recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
     maxNumIter = 10
     
       
@@ -853,9 +1068,47 @@ def pushover2T(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
     return techo, V, PER
 
 def pushover3T(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
+    '''
+    Function to calculate the pushover
+
+    Parameters
+    ----------
+    Dmax : float
+        Maximum displacement of the pushover.
+    Dincr : float
+        Increment in the displacement.
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    elements : list
+        elements to record forces and stresses.
     
+    norm : list, optional
+        List that includes the roof displacement and the building weight to normalize the pushover and display the roof drift vs V/W plot. The default is [-1,1].
+    Tol : float, optional
+        Norm tolerance. The default is 1e-8.
+
+    Returns
+    -------
+    techo : numpy array
+        Numpy array with the roof displacement recorded during the Pushover.
+    V : numpy array
+        Numpy array with the base shear (when using an unitary pattern) recorded during the Pushover. If pattern is not unitary it returns the multiplier
+    T : numpy array
+        Numpy array with the building period recorded during the Pushover.
+    Eds :
+        Numpy array with the forces in the elements (columns and beams). The order is determined by the order used in the input variable elements. The array has three dimensions. The first one is the element, the second one the pushover instant and the third one is the DOF.
+    Strains : 
+        Strain at the macrofibers of the wall. Records eight.
+    cStress : 
+        Concrete stress at the macrofibers of the wall. Records eight.
+    sStress :
+        Steel stress at the macrofibers of the wall. Records eight.
+
+    '''
     # creación del recorder de techo y definición de la tolerancia
-    recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
+    # recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
     maxNumIter = 10
     
       
@@ -1259,7 +1512,38 @@ def dinamico(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes = [
     return tiempo,techo
      
 def dinamicoIDA(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes = [0,2],Kswitch = 1,Tol=1e-4):
-    
+    '''
+
+    Parameters
+    ----------
+    recordName : string
+        Name of the record including file extension (i.e., 'GM01.txt'). It must have one record instant per line. 
+    dtrec : float
+        time increment of the record.
+    nPts : integer
+        number of points of the record.
+    dtan : float
+        time increment to be used in the analysis. If smaller than dtrec, OpenSeesPy interpolates.
+    fact : float
+        scale factor to apply to the record.
+    damp : float
+        Damping percentage in decimal (i.e., use 0.03 for 3%).
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    modes : list, optional
+        Modes of the structure to apply the Rayleigh damping. The default is [0,2] which uses the first and third mode.
+    Kswitch : int, optional
+        Use it to define which stiffness matrix should be used for the ramping. The default is 1 that uses initial stiffness. Input 2 for current stifness.
+    Tol : float, optional
+        Tolerance for the analysis. The default is 1e-4 because it uses the NormUnbalance test.
+
+    Returns
+    -------
+    None.
+
+    '''
     # modelName
     # record es el nombre del registro, incluyendo extensión. P.ej. GM01.txt
     # dtrec es el dt del registro
@@ -1470,7 +1754,41 @@ def dinamicoAnim(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes
     return tiempo,techo,Eds
     
 def dinamicoIDA2(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes = [0,2],Kswitch = 1,Tol=1e-8):
-    
+    '''  
+    Performs a dynamic analysis recording the displacement of a user selected node.
+    Parameters
+    ----------
+    recordName : string
+        Name of the record including file extension (i.e., 'GM01.txt'). It must have one record instant per line. 
+    dtrec : float
+        time increment of the record.
+    nPts : integer
+        number of points of the record.
+    dtan : float
+        time increment to be used in the analysis. If smaller than dtrec, OpenSeesPy interpolates.
+    fact : float
+        scale factor to apply to the record.
+    damp : float
+        Damping percentage in decimal (i.e., use 0.03 for 3%).
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    modes : list, optional
+        Modes of the structure to apply the Rayleigh damping. The default is [0,2] which uses the first and third mode.
+    Kswitch : int, optional
+        Use it to define which stiffness matrix should be used for the ramping. The default is 1 that uses initial stiffness. Input 2 for current stifness.
+    Tol : float, optional
+        Tolerance for the analysis. The default is 1e-4 because it uses the NormUnbalance test.
+
+    Returns
+    -------
+    tiempo : numpy array
+        Numpy array with analysis time.
+    techo : numpy array
+        Displacement of the control node.
+
+    '''
     # PARA SER UTILIZADO PARA CORRER EN PARALELO LOS SISMOS
     
     # record es el nombre del registro, incluyendo extensión. P.ej. GM01.txt
@@ -1729,6 +2047,65 @@ def dinamicoIDA3(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,eleme
 
 
 def dinamicoIDA4(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,elements,nodes_control,modes = [0,2],Kswitch = 1,Tol=1e-8):
+    '''
+    Performs a dynamic analysis for a ground motion, recording information about displacements, velocity, accelerations, forces, stresses and strain. To be used only with wall buildings modeled with the MVLEM.
+
+    Parameters
+    ----------
+    recordName : string
+        Name of the record including file extension (i.e., 'GM01.txt'). It must have one record instant per line. 
+    dtrec : float
+        time increment of the record.
+    nPts : integer
+        number of points of the record.
+    dtan : float
+        time increment to be used in the analysis. If smaller than dtrec, OpenSeesPy interpolates.
+    fact : float
+        scale factor to apply to the record.
+    damp : float
+        Damping percentage in decimal (i.e., use 0.03 for 3%).
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    elements : list
+        elements to record forces and stresses.
+    nodes_control : list
+        nodes to compute displacements and inter-story drift. You must input one per floor, otherwise you'll get an error.
+    modes : list, optional
+        Modes of the structure to apply the Rayleigh damping. The default is [0,2] which uses the first and third mode.
+    Kswitch : int, optional
+        Use it to define which stiffness matrix should be used for the ramping. The default is 1 that uses initial stiffness. Input 2 for current stifness.
+    Tol : float, optional
+        Tolerance for the analysis. The default is 1e-4 because it uses the NormUnbalance test.
+
+
+    Returns
+    -------
+    tiempo : numpy array
+        Numpy array with analysis time.
+    techo : numpy array
+        Displacement of the control node.
+    Eds :
+        Numpy array with the forces in the elements (columns and beams). The order is determined by the order used in the input variable elements. The array has three dimensions. The first one is the element, the second one the pushover instant and the third one is the DOF.
+    Strains : numpy array
+        Strain at the macrofibers of the wall. Records eight.
+    cStress : numpy array
+        Concrete stress at the macrofibers of the wall. Records eight.
+    sStress : numpy array
+        Steel stress at the macrofibers of the wall. Records eight.
+    node_disp : numpy array
+        Displacement at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    node_vel : numpy array
+        Velocity at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    node_acel : numpy array
+        Relative displacement at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    drift : numpy array
+        Drift at story of the building. Each column correspond to a node and each row to an analysis instant.
+
+    '''
+    
+    
     
     # PARA SER UTILIZADO PARA CORRER EN PARALELO LOS SISMOS Y EXTRAYENDO LAS FUERZAS DE LOS ELEMENTOS INDICADOS EN ELEMENTS
     
@@ -1891,6 +2268,60 @@ def dinamicoIDA4(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,eleme
 
 
 def dinamicoIDA4T(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,elements,nodes_control,modes = [0,2],Kswitch = 1,Tol=1e-8):
+    
+    '''
+    Performs a dynamic analysis for a ground motion, recording information about displacements, velocity, accelerations, forces. Only allows elements with six DOF. Returns the period at the end of the analysis.
+
+    Parameters
+    ----------
+    recordName : string
+        Name of the record including file extension (i.e., 'GM01.txt'). It must have one record instant per line. 
+    dtrec : float
+        time increment of the record.
+    nPts : integer
+        number of points of the record.
+    dtan : float
+        time increment to be used in the analysis. If smaller than dtrec, OpenSeesPy interpolates.
+    fact : float
+        scale factor to apply to the record.
+    damp : float
+        Damping percentage in decimal (i.e., use 0.03 for 3%).
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    elements : list
+        elements to record forces and stresses.
+    nodes_control : list
+        nodes to compute displacements and inter-story drift. You must input one per floor, otherwise you'll get an error.
+    modes : list, optional
+        Modes of the structure to apply the Rayleigh damping. The default is [0,2] which uses the first and third mode.
+    Kswitch : int, optional
+        Use it to define which stiffness matrix should be used for the ramping. The default is 1 that uses initial stiffness. Input 2 for current stifness.
+    Tol : float, optional
+        Tolerance for the analysis. The default is 1e-4 because it uses the NormUnbalance test.
+
+    Returns
+    -------
+    tiempo : numpy array
+        Numpy array with analysis time.
+    techo : numpy array
+        Displacement of the control node.
+    Eds :
+        Numpy array with the forces in the elements (columns and beams). The order is determined by the order used in the input variable elements. The array has three dimensions. The first one is the element, the second one the pushover instant and the third one is the DOF.
+    node_disp : numpy array
+        Displacement at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    node_vel : numpy array
+        Velocity at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    node_acel : numpy array
+        Relative displacement at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    drift : numpy array
+        Drift at story of the building. Each column correspond to a node and each row to an analysis instant.
+    Tf: float
+        Period at the end of the analysis
+
+    '''
+    
     # IGUAL A dinamicoIDA4T
     # PARA SER UTILIZADO PARA CORRER EN PARALELO LOS SISMOS Y EXTRAYENDO LAS FUERZAS DE LOS ELEMENTOS INDICADOS EN ELEMENTS
     
@@ -1910,7 +2341,7 @@ def dinamicoIDA4T(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,elem
     
     # creación del pattern
     
-    timeSeries('Path',1000,'-filePath',recordName,'-dt',dtrec,'-factor',fact)
+    # timeSeries('Path',1000,'-filePath',recordName,'-dt',dtrec,'-factor',fact)
     pattern('UniformExcitation',  1000,   1,  '-accel', 1000)
     
     # damping
@@ -2034,7 +2465,56 @@ def dinamicoIDA4T(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,elem
 
 
 def dinamicoIDA4P(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,elements,nodes_control,modes = [0,2],Kswitch = 1,Tol=1e-4):
-    
+    '''
+    Performs a dynamic analysis for a ground motion, recording information about displacements, velocity, accelerations, forces. Only allows elements with six DOF.
+
+    Parameters
+    ----------
+    recordName : string
+        Name of the record including file extension (i.e., 'GM01.txt'). It must have one record instant per line. 
+    dtrec : float
+        time increment of the record.
+    nPts : integer
+        number of points of the record.
+    dtan : float
+        time increment to be used in the analysis. If smaller than dtrec, OpenSeesPy interpolates.
+    fact : float
+        scale factor to apply to the record.
+    damp : float
+        Damping percentage in decimal (i.e., use 0.03 for 3%).
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    elements : list
+        elements to record forces and stresses.
+    nodes_control : list
+        nodes to compute displacements and inter-story drift. You must input one per floor, otherwise you'll get an error.
+    modes : list, optional
+        Modes of the structure to apply the Rayleigh damping. The default is [0,2] which uses the first and third mode.
+    Kswitch : int, optional
+        Use it to define which stiffness matrix should be used for the ramping. The default is 1 that uses initial stiffness. Input 2 for current stifness.
+    Tol : float, optional
+        Tolerance for the analysis. The default is 1e-4 because it uses the NormUnbalance test.
+
+    Returns
+    -------
+    tiempo : numpy array
+        Numpy array with analysis time.
+    techo : numpy array
+        Displacement of the control node.
+    Eds :
+        Numpy array with the forces in the elements (columns and beams). The order is determined by the order used in the input variable elements. The array has three dimensions. The first one is the element, the second one the pushover instant and the third one is the DOF.
+    node_disp : numpy array
+        Displacement at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    node_vel : numpy array
+        Velocity at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    node_acel : numpy array
+        Relative displacement at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    drift : numpy array
+        Drift at story of the building. Each column correspond to a node and each row to an analysis instant.
+
+    '''
     # PARA SER UTILIZADO PARA CORRER EN PARALELO LOS SISMOS Y EXTRAYENDO LAS FUERZAS DE LOS ELEMENTOS INDICADOS EN ELEMENTS
     
     # record es el nombre del registro, incluyendo extensión. P.ej. GM01.txt
@@ -2333,7 +2813,71 @@ def dinamicoIDA5(acceleration,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,ele
 
 
 #%% ========================== DINÁMICO CON REMOVAL ===========================
-def dinamicoIDA4R(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,columns, beams, ele,der,elements,nodes_control,id_s,id_c,modes = [0,2],Kswitch = 1,Tol=1e-4):
+def dinamicoIDA4R(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,columns, beams, ele,der,elements,nodes_control,modes = [0,2],Kswitch = 1,Tol=1e-4):
+    '''
+    Performs a dynamic analysis for a ground motion, recording information about displacements, velocity, accelerations, forces. Only allows elements with six DOF.
+
+    Parameters
+    ----------
+    recordName : string
+        Name of the record including file extension (i.e., 'GM01.txt'). It must have one record instant per line. 
+    dtrec : float
+        time increment of the record.
+    nPts : integer
+        number of points of the record.
+    dtan : float
+        time increment to be used in the analysis. If smaller than dtrec, OpenSeesPy interpolates.
+    fact : float
+        scale factor to apply to the record.
+    damp : float
+        Damping percentage in decimal (i.e., use 0.03 for 3%).
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    columns : list
+        List with the column tags to record information. Information will be recorded in the same order as input.
+    beams : list
+        List with the beam tags to record information. Information will be recorded in the same order as input..
+    ele : list
+        tags of diagonal strut elements of the walls. Input them pair-wise for the walls, i.e., the two of each walls at the time.
+    der : float
+        limit drift for each wall
+    elements : list
+        elements to record forces and stresses.
+    nodes_control : list
+        nodes to compute displacements and inter-story drift. You must input one per floor, otherwise you'll get an error.
+    modes : list, optional
+        Modes of the structure to apply the Rayleigh damping. The default is [0,2] which uses the first and third mode.
+    Kswitch : int, optional
+        Use it to define which stiffness matrix should be used for the ramping. The default is 1 that uses initial stiffness. Input 2 for current stifness.
+    Tol : float, optional
+        Tolerance for the analysis. The default is 1e-4 because it uses the NormUnbalance test.
+
+    Returns
+    -------
+    tiempo : numpy array
+        Numpy array with analysis time.
+    techo : numpy array
+        Displacement of the control node.
+    Eds : numpy array
+        Numpy array with the forces in the elements (columns and beams). The order is determined by the order used in the input variable elements. The array has three dimensions. The first one is the element, the second one the pushover instant and the third one is the DOF.
+    f_puntalA : numpy array
+        Numpy array with the forces in the struts (odds).
+    f_puntalB : numpy array
+        Numpy array with the forces in the struts (even).
+    node_disp : numpy array
+        Displacement at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    node_vel : numpy array
+        Velocity at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    node_acel : numpy array
+        Relative displacement at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
+    drift : numpy array
+        Drift at story of the building. Each column correspond to a node and each row to an analysis instant.
+
+    '''
+    
+    
     # recordName es el nombre del registro, incluyendo extensión. P.ej. GM01.txt
     # dtrec es el dt del registro
     # nPts es el número de puntos del análisis (residual=nPts agergarle 2 seg dividos por el dt del registro)
@@ -2491,7 +3035,7 @@ def dinamicoIDA4R(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,colu
     # puntal A, fuerza en el puntal B, Desplazamiento, velocidad, aceleración, 
     # deriva, instante de tiempo en el que el muro falla
     
-    return tiempo,techo,Eds,f_puntalA,f_puntalB,node_disp,node_vel,node_acel,drift,unicos2, Prot, fiber_s, fiber_c
+    return tiempo,techo,Eds,f_puntalA,f_puntalB,node_disp,node_vel,node_acel,drift,unicos2
 
 #%% ============================ FUNCIONES REMOVAL ============================
 
