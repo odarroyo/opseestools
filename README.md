@@ -32,12 +32,18 @@ import opstools.Lib_frag as ut (or any other name)
 ## Examples of use
 
 #### You can find Jupyter Notebooks with examples of using the library on the examples folder in this GitHub repository. The list of examples are the following:
-#### Example 1: how to install opseestools
-#### Example 2: using functions of the utility module to calculate the spectrum, fourier spectrum, cummulative arias intensity, average pseudoacceleration spectrum of a ground motion
-#### Example 3: using the analysis module to perform a pushover analysis of a RC frame
-#### Example 4: using the analysis module to perform a dynamic analysis of a RC frame
-#### Example 5: using the analysis module to perform an IDA of a RC frame
-#### Example 6: using the analysis module and the lib_frag to perform an multiple record IDA and compute the fragility curves for a RC wall building
+
+Example 1: how to install opseestools
+
+Example 2: using functions of the utility module to calculate the spectrum, fourier spectrum, cummulative arias intensity, average pseudoacceleration spectrum of a ground motion
+
+Example 3: using the analysis module to perform a pushover analysis of a RC frame
+
+Example 4: using the analysis module to perform a dynamic analysis of a RC frame
+
+Example 5: using the analysis module to perform an IDA of a RC frame
+
+Example 6: using the analysis module and the lib_frag to perform an multiple record IDA and compute the fragility curves for a RC wall building
 
 ## Function help
 
