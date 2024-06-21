@@ -7,7 +7,9 @@ It also includes another useful tools for processing results and creating script
 
 ## Installation
 
-pip install opseestools
+opseestools can be installed from the Python Package Index as:
+
+#### pip install opseestools
 
 ## Description
 
