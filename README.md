@@ -9,13 +9,9 @@ It also includes another useful tools for processing results and creating script
 
 pip install opseestools
 
-## Examples of use
+## Description
 
-#### You can find examples of scripts that use the library on my other GitHub repository: https://github.com/odarroyo/openseespy_starting_tutorials
-
-## Description and use 
-
-ops tools comprises a set of functions in three categories:
+opseestools comprises a set of functions in three modules:
 
 1) 2D Analysis functions. This library is called analysis. You can import it as:
 
@@ -33,12 +29,25 @@ import opstools.utilidades as ut (or any other name)
 
 import opstools.Lib_frag as ut (or any other name)
 
-## 2D Analysis functions
+## Examples of use
 
-Here's a brief description of some of the functions:
+#### You can find Jupyter Notebooks with examples of using the library on the examples folder in this GitHub repository. The list of examples are the following:
+#### Example 1: how to install opseestools
+#### Example 2: using functions of the utility module to calculate the spectrum, fourier spectrum, cummulative arias intensity, average pseudoacceleration spectrum of a ground motion
+#### Example 3: using the analysis module to perform a pushover analysis of a RC frame
+#### Example 4: using the analysis module to perform a dynamic analysis of a RC frame
+#### Example 5: using the analysis module to perform an IDA of a RC frame
+#### Example 6: using the analysis module and the lib_frag to perform an multiple record IDA and compute the fragility curves for a RC wall building
 
-### gravedad()
-To perform gravity analysis of a model you created. In a more general sense, it runs a static analysis, but returns no output. The idea of this script is to perform the gravity analysis before a pushover or other nonlinear analysis.
+## Function help
+
+Each function has a docstring with help for the function, detailing the inputs and outputs. 
+
+You can summon this help by using the integrated Python help(), for example: help(an.gravedad) will return help for the gravedad function in the analysis module.
+
+## Overview of some functions
+
+You may find useful two functions that perform two of the most common analysis: pushover2 and dinamicoIDA4P:
 
 ### pushover2(Dmax,Dincr,IDctrlNode,IDctrlDOF)
 
@@ -79,7 +88,3 @@ Outputs are:
 - node_vel: same as node_disp but for velocity
 - node_acel: same as node_disp but for acceleration. Returns the floor relative acceleration.
 - drift: same as node_disp but for interstory drifts.
-
-The outputs should all be specified and in that order. Example:
-
-time,roof,element_forces,node_disp,node_vel,node_acel,drift = an.dinamicoIDA4P(....)
