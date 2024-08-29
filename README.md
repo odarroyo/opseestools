@@ -47,6 +47,8 @@ Example 5: using the analysis module to perform an IDA of a RC frame
 
 Example 6: using the analysis module and the lib_frag to perform an multiple record IDA and compute the fragility curves for a RC wall building
 
+Example 7: demonstrating the functions added to the utility module in v0.4 that streamline creating reinforced concrete and steel frame models.
+
 ## Function help
 
 Each function has a docstring with help for the function, detailing the inputs and outputs. 
