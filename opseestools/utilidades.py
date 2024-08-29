@@ -825,3 +825,233 @@ def cumAI(tiempo,sismo1,plot=1,cum=[0.05,0.95]):
         plt.plot(t1,[0.05,0.95],'ro')
         plt.show()
     return a2,t1
+
+def e20Lobatto(Gfc,Lel,npint,fc,E,e0):
+    '''
+    Calculates the ultimate strain for a concrete material applying regularization based on the constant fracture energy proposed by Coleman and Spacone
+
+    Parameters
+    ----------
+    Gfc : float
+        facture energy in N/mm.
+    Lel : float
+        element length.
+    npint : int
+        number of integration points.
+    fc : float
+        concrete compressive strength in MPa.
+    E : float
+        concrete modulus of elasticity strength in MPa..
+    e0 : float
+        strain associated to fc.
+
+    Returns
+    -------
+    e20 : float
+        ultimate strain corresponding to 0.2fc according to Coleman and Spacone.
+
+    '''
+    
+    # TODO TIENE QUE ESTAR EN UNIDADES DE N y mm
+    # Gfc entra en N/mm: Energía de fractura
+    # Lel es la longitud del elemento en mm
+    # npint es el número de puntos de integración
+    # fc es el esfuerzo a compresión del concreto en N/mm2 (MPa)
+    # E es el módulo de elasticidad del concreto en N/mm2 (MPa)
+    # e0 es la deformación del concreto en fc
+    
+    if npint == 4:
+        LIP = Lel/2*1/6
+    elif npint == 5:
+        LIP = Lel/2*1/10
+    elif npint == 6:
+        LIP = Lel/2*1/15
+    elif npint == 3:
+        LIP = Lel/2*1/3
+    else:
+        LIP = 0.1*Lel
+        print('numero de puntos no soportado')
+    
+    e20 = Gfc/(0.6*fc*LIP)-0.8*fc/E+e0
+    
+    return e20
+
+def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = int(100), unctag = int(102), conftag = int(101)):
+    '''
+    Generates materials for concrete and steel. The concrete has regularization applied
+    and generates both, unconfined and confined concrete. Steel is defined based on the 
+    Dhakal and Maekawa model accounting for buckling and low-cycle fatigue
+
+    Parameters
+    ----------
+    zone : String, optional
+        Detailing level. By default it is special detailing. User can input 'DMO' for an intermediate detailing of Colombian design code.
+    fy : Float, optional
+        Steel yielding stress in MPa. The default is 420.
+    fcn : Float, optional
+        Concrete compressive stress in MPa. The default is 28.
+    tension : String, optional
+        String to define if concrete has tension capacity. The default is 'tension'. Use no to ignore tension
+    steeltag : Integer, optional
+        Tag of the steel material. The default is 100.
+    unctag : Integer, optional
+        Tag of the unconfined concrete material. The default is 102.
+    conftag : Integer, optional
+        Tag of the confined concrete material. The default is 101.
+
+    Returns
+    -------
+    list
+        List with the material tags for the unconfined concrete, confined concrete and reinforcement steel.
+
+    '''
+    
+    
+    # Steel properties
+    fy_1 = fy                                                              # fy del acero
+    fu_1 = fy_1*1.4 # aprox considerando los valores reportados por Julian                                                       
+    fh_1 = fy_1
+    E1 = 200000
+    ey_1 = fy_1/E1
+    eh = 0.01
+    eu = 0.1
+    
+    # concrete properties
+    fc = fcn*1000
+    Ec = 4400*np.sqrt(fcn)*1000
+    ec = 2*fc/Ec
+    fcu = 0.2*fc
+    e20_c = e20Lobatto2(28, 3000, 5, 28, 24000, ec)
+    ecu = e20_c
+    
+    if tension == 'tension':
+        uniaxialMaterial('Concrete02', unctag, fc, ec, fcu, ecu)
+    else:
+        uniaxialMaterial('Concrete01', unctag, fc, ec, fcu, ecu)
+    
+    if detailing == 'DMO':
+        D = 12
+        L = 8*D
+        s_steel1, e_steel1 = dhakal(fy_1, fu_1, ey_1, eh, eu, L, D)
+        s1p1, s2p1, s3p1, s4p1, e1p1, e2p1, e3p1, e4p1 = s_steel1[0], s_steel1[1], s_steel1[2], s_steel1[3],e_steel1[0], e_steel1[1], e_steel1[2], e_steel1[3]
+        s1n1, s2n1, s3n1, s4n1, e1n1, e2n1, e3n1, e4n1 = s_steel1[4], s_steel1[5], s_steel1[6], s_steel1[7],e_steel1[4], e_steel1[5], e_steel1[6], e_steel1[7]
+        uniaxialMaterial('HystereticSM',steeltag,'-posEnv',s1p1,e1p1,s2p1,e2p1,s3p1,e3p1,s4p1,e4p1,'-negEnv',s1n1,e1n1,s2n1,e2n1,s3n1,e3n1,s4n1,e4n1)
+        # Para el concreto confinado
+        k=1.25
+        fcc=fc*k
+        Ec = 4400*np.sqrt(fcc/1000)*1000
+        ecc= 2*fcc/Ec
+        fucc=0.2*fcc
+        e20_cc = e20Lobatto2(2*fc, 3000, 5, 28*k, Ec/1000, ecc)
+        eucc=e20_cc
+        if tension == 'tension':
+            uniaxialMaterial('Concrete02', 1, fcc, ecc, fucc, eucc)
+        else:
+            uniaxialMaterial('Concrete01', 1, fcc, ecc, fucc, eucc) 
+        
+    elif detailing =='DES':
+        D = 12
+        L = 6*D
+        s_steel1, e_steel1 = dhakal(fy_1, fu_1, ey_1, eh, eu, L, D)
+        s1p1, s2p1, s3p1, s4p1, e1p1, e2p1, e3p1, e4p1 = s_steel1[0], s_steel1[1], s_steel1[2], s_steel1[3],e_steel1[0], e_steel1[1], e_steel1[2], e_steel1[3]
+        s1n1, s2n1, s3n1, s4n1, e1n1, e2n1, e3n1, e4n1 = s_steel1[4], s_steel1[5], s_steel1[6], s_steel1[7],e_steel1[4], e_steel1[5], e_steel1[6], e_steel1[7]
+        uniaxialMaterial('HystereticSM',steeltag,'-posEnv',s1p1,e1p1,s2p1,e2p1,s3p1,e3p1,s4p1,e4p1,'-negEnv',s1n1,e1n1,s2n1,e2n1,s3n1,e3n1,s4n1,e4n1)
+        # Para el concreto confinado
+        k=1.3
+        fcc=fc*k
+        Ec = 4400*np.sqrt(fcc/1000)*1000
+        ecc= 2*fcc/Ec
+        fucc=0.2*fcc
+        e20_cc = e20Lobatto2(2*fc, 3000, 5, 28*k, Ec/1000, ecc)
+        eucc=e20_cc
+        if tension == 'tension':
+            uniaxialMaterial('Concrete02', conftag, fcc, ecc, fucc, eucc)
+        else:
+            uniaxialMaterial('Concrete01', conftag, fcc, ecc, fucc, eucc)
+    return [unctag,conftag,steeltag]
+
+
+def create_elements(coordx,coordy,coltag,beamtag,dia = 1):
+    '''
+    Function to create columns and beam elements. By default it uses one column and one beam.
+    
+    Parameters
+    ----------
+    coordx : list
+        coordinates in X direction. Must have been used before in the creategrid() command.
+    coordy : list
+        coordinates in Y direction. Must have been used before in the creategrid() command.
+    coltag : integer
+        tag of the columns.
+    beamtag : integer
+        tag of the beams.
+    dia : integer, optional
+        Use 1 if you want a rigid diaphragm, any number if you don't. The default is 1.
+
+    Returns
+    -------
+    TagColumns : list
+        list with the tags of the columns.
+    TagVigas : list
+        list with the tags of the beams.
+
+    '''
+    lineal = 1
+    geomTransf('Linear',lineal)
+    pdelta = 2
+    geomTransf('PDelta',pdelta)
+    nx = len(coordx)
+    ny = len(coordy)
+    TagColumns = []
+    for i in range(ny-1):
+        for j in range(nx):
+            nodeI = 1000*(j+1)+i
+            nodeJ = 1000*(j+1)+(i+1)
+            eltag = 100*(j+1) + i
+            TagColumns.append(eltag)
+            element('forceBeamColumn',eltag,nodeI,nodeJ,pdelta,coltag)
+    TagVigas = []
+    for i in range(1,ny):
+        for j in range(nx-1):
+            nodeI = 1000*(j+1)+i
+            nodeJ = 1000*(j+2)+i
+            eltag = 10000*(j+1) + i
+            TagVigas.append(eltag)
+            element('forceBeamColumn',eltag,nodeI,nodeJ,lineal,beamtag)
+    if dia == 1:
+        for j in range(1,ny):
+            for i in range(1,nx):
+                masternode = 1000 + j
+                slavenode = 1000*(i+1) + j
+                equalDOF(masternode,slavenode,1)
+                
+    
+    return TagColumns, TagVigas
+
+def load_beams(floor_load,roof_load,tagbeams,tag = 1):
+    '''
+    Loads the beams of the model
+
+    Parameters
+    ----------
+    floor_load : float. 
+        Load for the beam at floor levels. Negative values are in gravity direction
+    roof_load : float
+        Load for the beam at floor levels. Negative values are in gravity direction
+    tagbeams : list
+        tags of the beams. If you want it to work properly use the same tags generated by the create_elements function.
+    tag : integer, optional
+        Integer to assign to the tag of the load pattern. The default is 1.
+
+    Returns
+    -------
+    None.
+
+    '''
+    spans = int(str(tagbeams[-1])[0])
+    roof_tags = tagbeams[-spans:]
+    floor_tags = tagbeams[:-spans]
+    timeSeries('Linear', tag)
+    pattern('Plain',tag,tag)
+    eleLoad('-ele',*floor_tags,'-type','beamUniform',floor_load)
+    eleLoad('-ele',*roof_tags,'-type','beamUniform',roof_load)
