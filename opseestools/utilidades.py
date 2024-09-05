@@ -1055,3 +1055,37 @@ def load_beams(floor_load,roof_load,tagbeams,tag = 1):
     pattern('Plain',tag,tag)
     eleLoad('-ele',*floor_tags,'-type','beamUniform',floor_load)
     eleLoad('-ele',*roof_tags,'-type','beamUniform',roof_load)
+    
+def pushover_loads(coordy, tag_pattern = 1001, nodes = 0):
+    '''
+    Generates a pushover pattern proportional to the each floor height. Works in combination with the creategrid command. 
+
+    Parameters
+    ----------
+    coordy : List
+        List with the y coordinates of the model including the base coordinate
+    tag_pattern : int, optional
+        Integer with the pattern tag for the pushover. The default is 1001.
+    nodes : list, optional
+        List with the node tags where to create the pushover. The default is 0. If you create the nodes using the creategrid command, you shouldn't change it.
+        
+            
+    Returns
+    -------
+    None. It creates the pattern.
+
+    '''
+    puntos = len(coordy)-1
+    suma = np.sum(coordy)
+    timeSeries('Linear', tag_pattern)
+    pattern('Plain',tag_pattern,tag_pattern)
+    if nodes == 0:
+        for i in range(puntos):
+            load(int(1001+i),coordy[i+1]/suma,0,0)
+    else:
+        for i in range(puntos):
+            load(nodes[i],coordy[i+1]/suma,0,0)
+
+def create_rect_RC_section(ID,HSec,BSec,cover,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot=2,barAreaInt=1e-10):
+    BuildRCSection(ID,HSec,BSec,cover,cover,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot,barAreaInt,10,10,8,8)
+    beamIntegration('Lobatto',ID,ID,5)
