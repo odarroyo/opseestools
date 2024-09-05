@@ -49,6 +49,8 @@ Example 6: using the analysis module and the lib_frag to perform an multiple rec
 
 Example 7: demonstrating the functions added to the utility module in v0.4 that streamline creating reinforced concrete and steel frame models.
 
+Example 8: demonstrating the functions added to the utility module in v0.45 that further streamline creating reinforced concrete and steel frame models.
+
 ## Function help
 
 Each function has a docstring with help for the function, detailing the inputs and outputs. 
