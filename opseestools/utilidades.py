@@ -945,9 +945,9 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
         e20_cc = e20Lobatto2(2*fc, 3000, 5, 28*k, Ec/1000, ecc)
         eucc=e20_cc
         if tension == 'tension':
-            uniaxialMaterial('Concrete02', 1, fcc, ecc, fucc, eucc)
+            uniaxialMaterial('Concrete02', conftag, fcc, ecc, fucc, eucc)
         else:
-            uniaxialMaterial('Concrete01', 1, fcc, ecc, fucc, eucc) 
+            uniaxialMaterial('Concrete01', conftag, fcc, ecc, fucc, eucc) 
         
     elif detailing =='DES':
         D = 12
