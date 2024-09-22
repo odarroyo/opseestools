@@ -1089,3 +1089,260 @@ def pushover_loads(coordy, tag_pattern = 1001, nodes = 0):
 def create_rect_RC_section(ID,HSec,BSec,cover,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot=2,barAreaInt=1e-10):
     BuildRCSection(ID,HSec,BSec,cover,cover,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot,barAreaInt,10,10,8,8)
     beamIntegration('Lobatto',ID,ID,5)
+
+def creategrid3D(xloc,yloc,zloc,dia=1,floor_mass=[1.0]):
+    '''
+    
+    Parameters
+    ----------
+    xloc : list
+        List of X coordinates.
+    yloc : list
+        List of Y coordinates.
+    zloc : list
+        List of Z coordinates.
+    dia : int, optional
+        DESCRIPTION. The default is 0. Change to 1 for a Rigid Diaphragm
+    floor_mass : list, optional
+        List with the masses per floor starting from the first floor to the roof. It must have one less than zloc.
+    floor_inertia : list, optional
+        List with the inertia per floor starting from the first floor to the roof. It must have one less than zloc.
+
+    Returns
+    -------
+    df : TYPE
+        DESCRIPTION.
+
+    '''
+    ny = len(yloc)
+    nx = len(xloc)
+    nz = len(zloc)
+    coord = []
+    
+    # ----------------------Crear nodos de la estructura----------------------|
+    for i in range(nx):
+        for j in range(ny):
+            for z in range(nz):
+                nnode = 10000*(i+1)+100*(j)+z
+                node(nnode,xloc[i],yloc[j],zloc[z])
+                coord.append([nnode,xloc[i],yloc[j],zloc[z],z])
+
+    df = pd.DataFrame(coord, columns=['nlabel','x','y','z','floor'])
+    if dia == 1:
+        for z in range(1,len(zloc)):
+            node(z,np.max(xloc)/2,np.max(xloc)/2,zloc[z])
+            nfloor = df[df['floor']==z]
+            nodes_floor = nfloor.nlabel.to_list()            
+            fix(z,0,0,1,1,1,0)
+            mass(z,floor_mass[z-1],floor_mass[z-1],floor_mass[z-1],0.0,0.0,0.0)
+            rigidDiaphragm(3,z,*nodes_floor)
+    
+    return df
+
+def create_elements3D(coordx,coordy,coordz,coltag,beamtagX,beamtagY,dia = 1):
+    '''
+    Function to create columns and beam elements. By default it uses one column and one beam.
+    
+    Parameters
+    ----------
+    coordx : list
+        coordinates in X direction. Must have been used before in the creategrid() command.
+    coordy : list
+        coordinates in Y direction. Must have been used before in the creategrid() command.
+    coordZ : list
+        coordinates in Z direction. Must have been used before in the creategrid() command
+    coltag : integer or list
+        tag of the columns. IF the user inputs a list, it must be one column section per floor
+    beamtagX : integer
+        tag of the beams in X direction.
+    beamtagY : integer
+        tag of the beams in X direction.
+
+
+    Returns
+    -------
+    TagColumns : list
+        list with the tags of the columns.
+    TagVigasX : list
+        list with the tags of the beams in the X direction.
+    TagVigasY : list
+        list with the tags of the beams in the Y direction.
+
+    '''
+           
+    coltrans = 1000000
+    vigXtrans = 2000000
+    vigYtrans = 3000000
+    geomTransf('PDelta',coltrans,*[0, -1, 0])
+    geomTransf('Linear',vigXtrans,*[0, -1, 0])
+    geomTransf('Linear',vigYtrans,*[1, 0, 0])
+    nx = len(coordx)
+    ny = len(coordy)
+    nz = len(coordz)
+    if len(coltag) != nz:
+        print('ERROR: Number of column tags does not match number of floors')
+        
+    TagColumns = []
+    sectag = []
+    for i in range(nx):
+        for j in range(ny):
+            for z in range(nz-1):
+                nodeI = 10000*(i+1)+100*j+z
+                nodeJ = 10000*(i+1)+100*j+(z+1)
+                eltag = 10000*(z+1) + 100*i + j
+                TagColumns.append(eltag)
+                if type(coltag) == list:
+                    element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag[z])
+                    sectag.append(coltag[z])    
+                else:    
+                    element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag)
+    # print(TagColumns)
+    TagVigasX = []
+    for z in range(1,nz):
+        for i in range(nx-1):
+            for j in range(ny): 
+                nodeI = 10000*(i+1)+100*j+z
+                nodeJ = 10000*(i+2)+100*j+z
+                eltag = 1000000*z + 10000*(j+1) + 100*i
+                TagVigasX.append(eltag)
+                element('forceBeamColumn',eltag,*[nodeI,nodeJ],vigXtrans,beamtagX)
+                # print(nodeI,nodeJ,':',eltag)
+                # print('viga ok')
+    TagVigasY = []
+    for z in range(1,nz):
+        for i in range(nx):
+            for j in range(ny-1): 
+                nodeI = 10000*(i+1)+100*j+z
+                nodeJ = 10000*(i+1)+100*(j+1)+z
+                eltag = 10000000*z + 10000*(i+1) + 100*j
+                TagVigasY.append(eltag)
+                element('forceBeamColumn',eltag,*[nodeI,nodeJ],vigYtrans,beamtagY)
+                # print(nodeI,nodeJ,':',eltag)
+    
+    return TagColumns, TagVigasX, TagVigasY, sectag
+
+def load_beams3D(floor_load_x, roof_load_x, floor_load_y, roof_load_y, tagbeamsX, tagbeamsY, coordx, coordy, tag = 1):
+    '''
+    Function to add loads to the beams. Inputs for tags must be the ones from the create_elements3D command
+
+    Parameters
+    ----------
+    floor_load_x : float
+        Value of the load for floor beams in the X direction. USE NEGATIVE for gravity direction.
+    roof_load_x : float
+        Value of the load for roof beams in the X direction. USE NEGATIVE for gravity direction.
+    floor_load_y : float
+        Value of the load for floor beams in the Y direction. USE NEGATIVE for gravity direction.
+    roof_load_y : float
+        Value of the load for roof beams in the Y direction. USE NEGATIVE for gravity direction.
+    tagbeamsX : list
+        tag of beams in the X direction as returned by the create_elements3D command
+    tagbeamsY : TYPE
+        DESCRIPTION.
+    coordx : TYPE
+        DESCRIPTION.
+    coordy : TYPE
+        DESCRIPTION.
+    tag : TYPE, optional
+        DESCRIPTION. The default is 1.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    roofx = tagbeamsX[-(len(coordx)-1)*len(coordy):] # gets the tags of the roof beams in X direction
+    floorx = tagbeamsX[:-(len(coordx)-1)*len(coordy)] # gets the tags of the floor beams in X direction
+    roofy = tagbeamsY[-(len(coordy)-1)*len(coordx):] # gets the tags of the roof beams in Y direction
+    floory = tagbeamsY[:-(len(coordy)-1)*len(coordx)] # gets the tags of the floor beams in Y direction
+    timeSeries('Linear',tag)
+    pattern('Plain',tag,tag)
+    eleLoad('-ele',*floorx,'-type','beamUniform',floor_load_x,0.0)
+    eleLoad('-ele',*floory,'-type','beamUniform',floor_load_y,0.0)
+    eleLoad('-ele',*roofx,'-type','beamUniform',roof_load_x,0.0)
+    eleLoad('-ele',*roofy,'-type','beamUniform',roof_load_y,0.0)
+    
+def pushover_loads3D(coordz, pushdir = 'x', tag_pattern = 1001, nodes = 0):
+    '''
+    Generates a pushover pattern proportional to the each floor height. Works in combination with the creategrid3D command. 
+
+    Parameters
+    ----------
+    coordz : List
+        List with the z coordinates of the model including the base coordinate
+    pushdir : string, optional
+        Enter 'x' for the X direction (default), 'y' for the Y direction
+    tag_pattern : int, optional
+        Integer with the pattern tag for the pushover. The default is 1001.
+    nodes : list, optional
+        List with the node tags where to create the pushover. The default is 0. If you create the nodes using the creategrid command, you shouldn't change it.
+        
+            
+    Returns
+    -------
+    None. It creates the pattern.
+
+    '''
+    puntos = len(coordz)-1
+    suma = np.sum(coordz)
+    timeSeries('Linear', tag_pattern)
+    pattern('Plain',tag_pattern,tag_pattern)
+    if nodes == 0:
+        for i in range(puntos):
+            if pushdir == 'x':
+                load(int(1+i),coordz[i+1]/suma,0,0,0,0,0)
+            elif pushdir == 'y':
+                load(int(1+i),0,coordz[i+1]/suma,0,0,0,0)
+    else:
+        for i in range(puntos):
+            load(nodes[i],coordz[i+1]/suma,0,0,0,0,0)
+
+def create_slabs(coordx, coordy, coordz, hslab, Eslab, pois, seclosa = 12345, dens = 0.0, starttag = 0):
+    '''
+    create_slabs create a solid slab in the area of the model specified by the coordinates. It uses an ElasticMembratePlateSection formulation and the Shell DKGQ. 
+
+    Parameters
+    ----------
+    coordx : list
+        DESCRIPTION.
+    coordy : list
+        DESCRIPTION.
+    coordz : list
+        DESCRIPTION.
+    hslab : float
+        slab height.
+    Eslab : float
+        modulus of elasticity of the slab material.
+    pois : float
+        poisson ratio.
+    seclosa : integer, optional
+        tag for the slab section. The default is 12345 tro avoid conflicts with other tags.
+    dens : float, optional
+        Density of the slab. The default is 0.0.
+    starttag: integer, optional
+        Integer to use to start in another numbering scheme. Useful when you want to call the function several times. You enter the last integer of the previous call and it works.
+    Returns
+    -------
+    slabtags : list
+        List with the tags of the slabs
+
+    '''
+    section('ElasticMembranePlateSection', seclosa, 1.0*Eslab, pois, hslab, dens)
+    nx = len(coordx)
+    ny = len(coordy)
+    nz = len(coordz)
+    slabtags = []
+    for z in range(1,nz):
+        tag = 100*z + starttag
+        for i in range(nx - 1):
+            for j in range(ny - 1):
+                n1 = 10000*(i+1) + 100*j + z
+                n2 = 10000*(i+2) + 100*j + z
+                n3 = 10000*(i+2) + 100*(j+1) + z
+                n4 = 10000*(i+1) + 100*(j+1) + z
+                nodoslosa = [n1,n2,n3,n4]
+                element('ShellDKGQ', tag, *nodoslosa, seclosa)
+                slabtags.append(tag)
+                tag = tag + 1
+    return slabtags           
