@@ -1179,7 +1179,7 @@ def create_elements3D(coordx,coordy,coordz,coltag,beamtagX,beamtagY,dia = 1):
     nx = len(coordx)
     ny = len(coordy)
     nz = len(coordz)
-    if len(coltag) != nz:
+    if len(coltag) != nz-1:
         print('ERROR: Number of column tags does not match number of floors')
         
     TagColumns = []
