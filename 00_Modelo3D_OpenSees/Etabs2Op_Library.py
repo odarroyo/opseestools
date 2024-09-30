@@ -17,7 +17,7 @@ import time
 import opseestools.utilidades as ut
 
 """----------------------------------------------------------------------------
-                       Crear excel para leer información
+                                Consolidate Excel
 ----------------------------------------------------------------------------"""
 def consolidate_excel(directory_path,output_file):
     
@@ -66,8 +66,6 @@ def consolidate_excel(directory_path,output_file):
                         df = pd.read_excel(file_path,sheet_name=sheet_name,skiprows=1).drop(index=0)
                         df.to_excel(writer,sheet_name=expected_sheet_name,index=False)
                         
-                        # print(f" {file_index}). Sheet: {sheet_name} consolidate in '{expected_sheet_name}' ") 
-                        # print(' ')
         print("|-----------------------------------------------------|")
         print("|-------------- CONSOLIDATION COMPLETE ---------------|")
         print(f"|-------------- {file_index} sheets were assigned --------------|")
@@ -76,22 +74,43 @@ def consolidate_excel(directory_path,output_file):
     
 
 """----------------------------------------------------------------------------
-                        Generar nodos de la estructura
+                                Generate 3D Nodes
 ----------------------------------------------------------------------------"""
 def genNodes3D(df):
     
-    xcoord = df['Global X'].to_numpy() # coordenada X
-    ycoord = df['Global Y'].to_numpy() # coordenada Y
-    zcoord = df['Global Z'].to_numpy() # coordenada Z
-    nlabel = df['Element Label'].to_numpy(dtype=int) # label del nodo en ETABS. Se usará el mismo en OpenSees
+    """
+    Read the x, y, and z coordinates of each joint modeled in ETABS and generate nodes based on that information.
+    Nodes at the base are modeled by restraining all degrees of freedom (fixed)
     
-    # Ciclo para crear los nodos del modelo
+    Parameters
+    ----------
+    df : DataFrame
+        DataFrame with the Joint Coordinate Information
+    
+    Returns
+    -------
+    xcoord : Array
+        X Coordinate of each Joint
+    ycoord : Array
+        Y Coordinate of each Joint
+    zcoord : Array
+        Z Coordinate of each Joint
+    nlabel : Array
+        Joints Tag
+    """
+    
+    xcoord = df['Global X'].to_numpy() # x coordinate
+    ycoord = df['Global Y'].to_numpy() # y coordinate
+    zcoord = df['Global Z'].to_numpy() # z coordinate
+    nlabel = df['Element Label'].to_numpy(dtype=int) # Joint Tag
+    
+    # Cycle to create the nodes of the model
     nnodes = len(xcoord)
     for i in range(nnodes):
         node(int(nlabel[i]),float(xcoord[i]),float(ycoord[i]),float(zcoord[i]))
     
-    # Restricciones en la base
-    fixZ(0.0,1,1,1,1,1,1)   # Nodos de la base empotrados
+    # Restrictions at the base
+    fixZ(0.0,1,1,1,1,1,1)   # Fixed base nodes
     
     return xcoord,ycoord,zcoord,nlabel
 
@@ -134,70 +153,30 @@ def AssMaterials(df_Frames):
                              Generar losas
 ----------------------------------------------------------------------------"""
 
-def AssSlabs(df_Shell,df_Frames):
-    
-    # Variables que se deben ingresar desde Excel:
-        # fc: f'c del concreto de la losa
-        # hlosa: altura de la losa
-    
+def AssSlabs(df_Shell):
+    slabtags = []
     for index in range(len(df_Shell)):
-        
         aa = df_Shell.iloc[index]
+        fc = aa['Fc']
+        hslab = aa['Slab Thickness']
+        Eslab = 1000*4400*(fc/1000)**0.5
+        seclosa = -(index+1)
+        # Se crea la seccion de la losa
+        section('ElasticMembranePlateSection', seclosa, 1.0*Eslab, 0.0, hslab, 0.0)
         
-        fc = aa['Fc'] # Unidades en kPa
-        hlosa = aa['Slab Thickness'] # Altura de la losa en m
+        tag = -(1000+index)
         
-        # Propiedades del concreto de la losa
-        E = 1000*4700*(fc/1000)**0.5 
-        ft = 0.1*fc
-        fcu = 0.1*fc
-        ec = 2*fc/E
-        ecu = 0.006
+        n1 = int(aa['Joint 1'])
+        n2 = int(aa['Joint 2'])
+        n3 = int(aa['Joint 3'])
+        n4 = int(aa['Joint 4'])
+        nodoslosa = [n1,n2,n3,n4]
         
-        # Propiedades de la malla electrosoldada
-        Fy = 621000.0
-        Es = 210000000.0
-        ey = Fy/Es
-        fu = 687000.0
-        eult = 0.0155
-        
-        pois = 0.3 # modulo de poisson
-        dens = 24 # densidad de la losa
-
-        # Tags del material de la losa (numero de frames*2 para evitar problemas con Tags)
-        
-        Inicio = int(len(df_Frames)*2+2) # Inicio de Tag
-        
-        concNDtag = Inicio + int(index) # Tag para definir el concreto para el ND material
-        concNDtag2 = Inicio + int(len(df_Shell)+(index)) # Tag para definir el concreto para el ND material
-        mallataglosa = Inicio + int(len(df_Shell)*2+(index)) # Tag para malla de la losa
-        
-        # Definir concreto de la losa
-        nDMaterial('PlaneStressUserMaterial', concNDtag, 40, 7, fc, ft, -fcu, -ec, -ecu, 0.001, 0.05)
-        nDMaterial('PlateFromPlaneStress', concNDtag2, concNDtag, 1e10)
-        
-        # Definir la malla de la losa
-        uniaxialMaterial('Hysteretic', 460+index, Fy, ey, fu, eult, 0.01*Fy, 0.018, -Fy, -ey, -fu, -eult, -0.01*Fy, -0.018, 1.0, 1.0, 0.0, 0.0)
-        uniaxialMaterial('MinMax', 480+index, 460+index, '-min', -0.0155, '-max', 0.0155)
-        
-        nDMaterial('PlateRebar', mallataglosa, 460+index, 0) # 0 para colocar en dirección transversal (X) el refuerzo
+        element('ShellDKGQ', tag, *nodoslosa, seclosa)
+        slabtags.append(tag)
     
-        # Tags del elemento --> Losa (Tag +500)
-        seclosa = 500000+index 
-        seclosa2 = 520000+index
-        seclosa3 = 540000+index
-        
-        # Definir elemento --> Losa
-        section('ElasticMembranePlateSection', seclosa, 1.0*E, pois, hlosa, dens)
-        section('LayeredShell', seclosa2, 8, concNDtag2,0.02,mallataglosa,0.002,mallataglosa,0.002,concNDtag2,0.026,concNDtag2,0.026,mallataglosa,0.002,mallataglosa,0.002,concNDtag2,0.02)
-        section('LayeredShell', seclosa3, 8, concNDtag2,0.02,mallataglosa,0.006,mallataglosa,0.006,concNDtag2,0.043,concNDtag2,0.043,mallataglosa,0.006,mallataglosa,0.006,concNDtag2,0.02)
+    return slabtags
     
-        # material del shear
-        tagshear = 560000+index
-        G = E*0.4
-        uniaxialMaterial('Elastic', tagshear, G*1.5)
-    
-    return seclosa
 
 """----------------------------------------------------------------------------
                             Crear secciones de fibras
@@ -267,43 +246,60 @@ def genElements(df_Elements,coltrans,Nodes_Label,xcoord,ycoord,zcoord):
                      Aplicar carga distribuida a vigas
 ----------------------------------------------------------------------------"""
 
-def AppBeamLoads(df_Elemnts_Shells,df_Elements_Beams,df_Shell_Loads,df_Tributary):
+def AppBeamLoads(df_OEShell,df_Elm_Beams_Original,df_Shell_Loads,df_Joints,df_Tributary):
     
-    # La carga distribuida se calcula como:
-        # (Área tributaria/Longitud de la viga)*(1.05CM+0.25CV)+Peso de las vigas
-        # El peso de las vigas es el área de la sección de la viga multiplicado 
-        # por la densidad del concreto
-        
+    df_Elm_Beams = df_Elm_Beams_Original.copy()
     # Procesar la matriz Shell2Beam
     Shell2Beam = np.array([
-        [int(bb['Unique Name']) if ((aa['Joint I'] == bb['Joint 1'] and aa['Joint J'] == bb['Joint 4']) or 
-                                    (aa['Joint I'] == bb['Joint 4'] and aa['Joint J'] == bb['Joint 1']) or 
-                                    (aa['Joint I'] == bb['Joint 2'] and aa['Joint J'] == bb['Joint 3']) or 
-                                    (aa['Joint I'] == bb['Joint 3'] and aa['Joint J'] == bb['Joint 2']))
-         else 0
-         for _, bb in df_Elemnts_Shells.iterrows()]
-        for _, aa in df_Elements_Beams.iterrows()
+        [int(bb['Element Label']) if ((aa['Joint I'] == bb['Joint 1'] and aa['Joint J'] == bb['Joint 2']) or #Joint 1 y 2 
+                                    (aa['Joint I'] == bb['Joint 2'] and aa['Joint J'] == bb['Joint 1']) or #Joint 1 y 2
+                                    
+                                    (aa['Joint I'] == bb['Joint 2'] and aa['Joint J'] == bb['Joint 3']) or #Joint 2 y 3
+                                    (aa['Joint I'] == bb['Joint 3'] and aa['Joint J'] == bb['Joint 2']) or #Joint 2 y 3
+                                    
+                                    (aa['Joint I'] == bb['Joint 3'] and aa['Joint J'] == bb['Joint 4']) or #Joint 3 y 4
+                                    (aa['Joint I'] == bb['Joint 4'] and aa['Joint J'] == bb['Joint 3']) or #Joint 3 y 4
+                                    
+                                    (aa['Joint I'] == bb['Joint 4'] and aa['Joint J'] == bb['Joint 1']) or #Joint 4 y 1
+                                    (aa['Joint I'] == bb['Joint 1'] and aa['Joint J'] == bb['Joint 4'])) #Joint 4 y 1
+          else 0
+          for _, bb in df_OEShell.iterrows()]
+        for _, aa in df_Elm_Beams.iterrows()
     ])
-    
+
     # Extraer cargas asociadas a cada elemento
     Shell_2_Beam = [[num for num in row if num != 0] for row in Shell2Beam.tolist()]
-    
+
     CVLoads = [np.mean([float(df_Shell_Loads[df_Shell_Loads['Unique Name'] == label]['Load CV']) for label in labels]) if labels else 0 for labels in Shell_2_Beam]
     CMLoads = [np.mean([float(df_Shell_Loads[df_Shell_Loads['Unique Name'] == label]['Load CM']) for label in labels]) if labels else 0 for labels in Shell_2_Beam]
-    
-    df_Elements_Beams['Load CM'] = CMLoads
-    df_Elements_Beams['Load CV'] = CVLoads
-    
-    # Agregar y calcular la fuerza al DataFrame final
-    df_Elements_Beams = df_Elements_Beams.merge(df_Tributary[['Unique Name', 'Tributary Area']], on='Unique Name', how='inner')
-    
-    
-    df_Elements_Beams['Force at Start'] = (df_Elements_Beams['Tributary Area'] / df_Elements_Beams['Length']) * (1.05 * df_Elements_Beams['Load CM'] + 0.25 * df_Elements_Beams['Load CV'])
 
-    return df_Elements_Beams
+    df_Elm_Beams['Load CM'] = CMLoads
+    df_Elm_Beams['Load CV'] = CVLoads
 
-
+    Length = []
+    for index in range(len(df_Elm_Beams)):
+        aa = df_Elm_Beams.iloc[index]
+        JointI = int(aa['Joint I'])
+        JointJ = int(aa['Joint J'])
+        LengthI,LengthJ = [],[]
+        for index2 in range(len(df_Joints)):
+            bb = df_Joints.iloc[index2]
+            Joint = int(bb['Element Label'])   
+            if JointI == Joint:
+                LengthI.append([bb['Global X'],bb['Global Y']])
+            if JointJ == Joint:
+                LengthJ.append([bb['Global X'],bb['Global Y']])
+                
+        Length.append(np.abs(LengthI[0][0]-LengthJ[0][0])+np.abs(LengthI[0][1]-LengthJ[0][1]))
         
+    df_Elm_Beams['Length'] = Length
+
+    # # Agregar y calcular la fuerza al DataFrame final
+    df_Elm_Beams = df_Elm_Beams.merge(df_Tributary[['Element Label', 'Tributary Area']], on='Element Label', how='inner')
+
+    df_Elm_Beams['Force at Start'] = (df_Elm_Beams['Tributary Area'] / df_Elm_Beams['Length']) * (1.0 * df_Elm_Beams['Load CM'] + 0.25 * df_Elm_Beams['Load CV'])
+
+    return df_Elm_Beams
 
 def col_materials(steeltag, unctag, conftag,fcn=28,fy=420,detailing='DES',tension = 'tension'):
     '''
@@ -488,4 +484,3 @@ def dhakal(Fyy, Fuu, eyy, ehh, euu, Lb, Db):
  
     
     return s, e
-

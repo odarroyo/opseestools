@@ -53,8 +53,8 @@ xcoord,ycoord,zcoord,Nodes_Label = lb.genNodes3D(df_Joints)
 print("|-----------------------------------------------------|")
 print("|------------------ Nodes generated ------------------|")
 
-opsv.plot_model(node_labels=0)
-plt.show()
+# opsv.plot_model(node_labels=0)
+# plt.show()
 
 #%% Definición de materiales ---->
 
@@ -79,18 +79,30 @@ print("|----------------- Materials created -----------------|")
 
 #%% Definicion de la losa ---->
 
-# Exportar "Shell Sections - Slab"
-df_Shell = pd.read_excel(Excel_ETABS,sheet_name='Shell Sections - Slab')
+# Importar "Shell Sections - Slab"
+df_SecShell = pd.read_excel(Excel_ETABS,sheet_name='Shell Sections - Slab')
 
 # Incluir en el dataframe el falor de f'c
-df_Shell= pd.merge(df_Shell, df_MatProp[['Material','Fc']],on='Material',how='inner') # Dataframe con el valor de FC para cada sección
+df_SecShell = pd.merge(df_SecShell, df_MatProp[['Material','Fc']],on='Material',how='inner') # Dataframe con el valor de FC para cada sección
+df_SecShell.rename(columns={'Name':'Section'}, inplace=True)
 
-Shell_Label = lb.AssSlabs(df_Shell,df_Frames)
+# Importar "Objets and Elements - Shells"
+df_OEShell = pd.read_excel(Excel_ETABS,sheet_name='Objects and Elements - Shells')
 
-df_Shell['Shell_Label'] = Shell_Label
+# Importar "Shell Assignments - Sections"
+df_AsgShell = pd.read_excel(Excel_ETABS,sheet_name='Shell Assignments - Sections')
+df_AsgShell.rename(columns={'Unique Name':'Element Label'}, inplace=True) # Cambiar nombre de la columna
+
+# Mezclar los dataframes
+df_Shell = pd.merge(df_OEShell, df_AsgShell[['Element Label','Section']],on='Element Label',how='inner') 
+df_Shell = pd.merge(df_Shell, df_SecShell[['Section','Slab Thickness','Fc']],on='Section',how='inner') 
+
+
+slabtags = lb.AssSlabs(df_Shell)
+df_Shell['slabtag'] = slabtags
 
 print("|-----------------------------------------------------|")
-print("|------------ Shells parameters generated ------------|")
+print("|----------------- Shells generated ------------------|")
 
 #%% Información de las secciones y transformaciones ---->
 
@@ -153,12 +165,44 @@ lb.genElements(df_Elements,coltrans,Nodes_Label,xcoord,ycoord,zcoord)
 print("|-----------------------------------------------------|")
 print("|----------------- Elements generated ----------------|")
 
+#%% Para aplicar las cargas verticales ---->
+
+df_Elements.rename(columns={'Unique Name':'Element Label'}, inplace=True)
+df_Elm_Beams = df_Elements[df_Elements['Design Type'] == 'Beam']
+
+# Cargar Tabla "Tributary Area and LLRF"
+df_Tributary = pd.read_excel(Excel_ETABS, sheet_name='Tributary Area and LLRF')
+df_Tributary.rename(columns={'Unique Name':'Element Label'}, inplace=True)
+df_Tributary = df_Tributary[df_Tributary['Design Type'] == 'Beam'].drop(columns=['Story', 'Label', 'Design Type', 'LLRF'])
+
+# Cargar y procesar datos de cargas - Tabla "Shell Loads - Uniform
+df_Shell_Loads1 = pd.read_excel(Excel_ETABS, sheet_name='Shell Loads - Uniform')
+df_Shell_Loads = df_Shell_Loads1[df_Shell_Loads1['Load Pattern'] == 'CV'].rename(columns={'Load': 'Load CV'})
+
+df_Shell2_Loads = df_Shell_Loads1[df_Shell_Loads1['Load Pattern'] == 'CMsobreimpuesta'].drop(columns=['Story', 'Label', 'Load Pattern', 'Direction']).rename(columns={'Load': 'Load CM'}).reset_index(drop=True)
+df_Shell_Loads = pd.merge(df_Shell_Loads, df_Shell2_Loads[['Unique Name', 'Load CM']], on='Unique Name', how='inner')
+
+df_Elements_Beams = lb.AppBeamLoads(df_OEShell,df_Elm_Beams,df_Shell_Loads,df_Joints,df_Tributary)
+
+timeSeries('Linear', 1)
+pattern('Plain',1,1)
+
+nels = len(df_Elements_Beams)
+
+for ind3 in range(nels):
+    aa = df_Elements_Beams.iloc[ind3]
+    eleLoad('-ele',int(aa['Element Label']),'-type','-beamUniform',-aa['Force at Start'],0.0)
+    
+print("|-----------------------------------------------------|")
+print("|------------------ Cargas aplicadas -----------------|")
 #%% Para mostrarlo con extrusión ---->
-ele_shapes = {}
-for index, row in df_Elements.iterrows():
-    ele_shapes[int(row['Unique Name'])] = ['rect', [row['t2'], row['t3']]]
-# este ciclo extrae los nodos que conforman cada una de las losas del modelo y los deja en nodosM
-opsv.plot_extruded_shapes_3d(ele_shapes)
+# ele_shapes = {}
+# for index, row in df_Elements.iterrows():
+#     ele_shapes[int(row['Unique Name'])] = ['rect', [row['t2'], row['t3']]]
+# # este ciclo extrae los nodos que conforman cada una de las losas del modelo y los deja en nodosM
+# opsv.plot_extruded_shapes_3d(ele_shapes)
+
+vfo.plot_model(show_nodetags='yes',show_eletags='yes')
 
 #%% Asignación de diafragmas y masas ---->
 
@@ -181,8 +225,6 @@ dia1 = df_Joints[index1]['Element Label'].astype(int).to_list()
 for ind,alt in enumerate(altur):   
     index1 = df_Joints['Global Z'] == alt
     dia1 = df_Joints[index1]['Element Label'].astype(int).to_list()
-    print(dia1)
-    print('------------')
     # Crea un nodo en el centro de masa
     node(100000000*ind,float(Xcent[ind]),float(Ycent[ind]),float(alt))
     
@@ -193,6 +235,7 @@ for ind,alt in enumerate(altur):
 
 print("|-----------------------------------------------------|")
 print("|----------- Diaphragm and masses assigned -----------|")
+print("|-----------------------------------------------------|")
 
 #%%
 eig = eigen(len(altur))
@@ -200,61 +243,8 @@ eig = eigen(len(altur))
 T1 = 2*3.1416/np.sqrt(eig[0])
 T2 = 2*3.1416/np.sqrt(eig[1])
 
-modalProperties('-file', 'modal.txt', '-unorm', '-return')
+# modalProperties('-file', 'modal.txt', '-unorm', '-return')
 modalProperties('-print', '-unorm')
+# vfo.plot_modeshape(scale=50, contour='X', modenumber=3)
 
-
-# #%% Para aplicar las cargas verticales ---->
-
-# # Cargar y limpiar datos iniciales >>>
-# # Cargar Tabla "Objects and Elemnts - Shells"
-# df_Elemnts_Shells = pd.read_excel(Excel_ETABS, sheet_name='Objects and Elements - Shells', skiprows=1).drop(index=0)
-# df_Elemnts_Shells.rename(columns={'Element Label':'Unique Name'}, inplace=True)
-
-# df_Elements_Beams = df_Elements[df_Elements['Design Type'] == 'Beam']
-
-# # Cargar Tabla "Tributary Area and LLRF"
-# df_Tributary = pd.read_excel(Excel_ETABS, sheet_name='Tributary Area and LLRF', skiprows=1).drop(index=0)
-# df_Tributary = df_Tributary[df_Tributary['Design Type'] == 'Beam'].drop(columns=['Story', 'Label', 'Design Type', 'LLRF'])
-
-# # Cargar y procesar datos de cargas - Tabla "Shell Loads - Uniform
-# df_Shell_Loads1 = pd.read_excel(Excel_ETABS, sheet_name='Shell Loads - Uniform', skiprows=1).drop(index=0)
-# df_Shell_Loads = df_Shell_Loads1[df_Shell_Loads1['Load Pattern'] == 'CV'].rename(columns={'Load': 'Load CV'})
-
-# df_Shell2_Loads = df_Shell_Loads1[df_Shell_Loads1['Load Pattern'] == 'CMsobreimpuesta'].drop(columns=['Story', 'Label', 'Load Pattern', 'Direction']).rename(columns={'Load': 'Load CM'}).reset_index(drop=True)
-
-# df_Shell_Loads = pd.merge(df_Shell_Loads, df_Shell2_Loads[['Unique Name', 'Load CM']], on='Unique Name', how='inner')
-
-
-# #%%
-# # Procesar la matriz Shell2Beam
-# Shell2Beam = np.array([
-#     [int(bb['Unique Name']) if ((aa['Joint I'] == bb['Joint 1'] and aa['Joint J'] == bb['Joint 4']) or 
-#                                 (aa['Joint I'] == bb['Joint 4'] and aa['Joint J'] == bb['Joint 1']) or 
-#                                 (aa['Joint I'] == bb['Joint 2'] and aa['Joint J'] == bb['Joint 3']) or 
-#                                 (aa['Joint I'] == bb['Joint 3'] and aa['Joint J'] == bb['Joint 2']))
-#      else 0
-#      for _, bb in df_Elemnts_Shells.iterrows()]
-#     for _, aa in df_Elements_Beams.iterrows()
-# ])
-
-# # Extraer cargas asociadas a cada elemento
-# Shell_2_Beam = [[num for num in row if num != 0] for row in Shell2Beam.tolist()]
-
-# CVLoads = [np.mean([float(df_Shell_Loads[df_Shell_Loads['Unique Name'] == label]['Load CV']) for label in labels]) if labels else 0 for labels in Shell_2_Beam]
-# CMLoads = [np.mean([float(df_Shell_Loads[df_Shell_Loads['Unique Name'] == label]['Load CM']) for label in labels]) if labels else 0 for labels in Shell_2_Beam]
-
-# # # Dataframe de cargas distribuidas en columnas
-# # df_Loads = lb.AppBeamLoads(df_Elemnts_Shells,df_Elements_Beams,df_Shell_Loads,df_Tributary)
-
-# # #%%
-# # timeSeries('Linear', 1)
-# # pattern('Plain',1,1)
-# # nels = len(df_Loads)
-
-# # for ind3 in range(nels):
-# #     aa = df_Loads.iloc[ind3]
-# #     eleLoad('-ele',int(aa['Unique Name']),'-type','-beamUniform',-aa['Force at Start'],0.0)
-
-# # print("|-----------------------------------|")
-# # print("|--------- Cargas aplicadas --------|")
+an.gravedad()
