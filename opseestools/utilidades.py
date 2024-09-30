@@ -12,6 +12,9 @@ from scipy.stats import gmean
 from scipy.fft import fft, ifft
 from scipy.integrate import cumulative_trapezoid
 
+# Prueba 1.
+
+
 def MomentCurvature(secTag, axialLoad, maxK, numIncr=300):
     '''
     
