@@ -51,6 +51,10 @@ Example 7: demonstrating the functions added to the utility module in v0.4 that 
 
 Example 8: demonstrating the functions added to the utility module in v0.45 that further streamline creating reinforced concrete and steel frame models.
 
+Example 9: moment curvature of a T-shaped wall
+
+Example 10: example demonstrating the use of new commands in v0.6. These allow generating 3D RC Frame buildings regular in plan and height. The example creates a 3 story building and runs a pushover in under 80 lines of code.
+
 ## Function help
 
 Each function has a docstring with help for the function, detailing the inputs and outputs. 
