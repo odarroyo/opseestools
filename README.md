@@ -33,7 +33,7 @@ import opstools.Lib_frag as ut (or any other name)
 
 ## Examples of use
 
-#### You can find Jupyter Notebooks with examples of using the library on the examples folder in this GitHub repository. The list of examples are the following:
+#### You can find Jupyter Notebooks and python scripts with examples of using the library on the examples folder in this GitHub repository. The list of examples are the following:
 
 Example 1: how to install opseestools
 
