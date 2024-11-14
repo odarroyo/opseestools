@@ -55,6 +55,8 @@ Example 9: moment curvature of a T-shaped wall
 
 Example 10: example demonstrating the use of new commands in v0.6. These allow generating 3D RC Frame buildings regular in plan and height. The example creates a 3 story building and runs a pushover in under 80 lines of code.
 
+Example 11: example demonstrating the use of new commands in v0.6. These allow generating 2D RC Frame buildings. The example creates a 2 story building and runs a pushover in under 40 lines of code.
+
 ## Function help
 
 Each function has a docstring with help for the function, detailing the inputs and outputs. 
