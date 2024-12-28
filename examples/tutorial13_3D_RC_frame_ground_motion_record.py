@@ -92,18 +92,19 @@ an.gravedad()
 plt.show()
 loadConst('-time',0.0)
 
-#%% Pushover direccion X
+#%% Tiempo historia
 
-ut.pushover_loads3D(coordz)
 stime = time.time()
-dtecho,Vbasal = an.pushover2(coordz[-1]*0.03, 0.001, len(coordz)-1, 1,norm=[coordz[-1],np.sum(masas)*9,81])
+tiempo, dtecho = an.dinamicoIDA2('GM01.txt', 0.01, 3000, 0.01, 9.81*1.0, 0.025, len(coordz)-1, 1)
 etime = time.time()
 ttotal = etime - stime
 print('tiempo de ejecucion: ',ttotal,'segundos')
-plt.show()
+
 
 #%% Pushover direccion Y
 
+plt.plot(tiempo,dtecho)
+plt.show()
 # ut.pushover_loads3D(coordz,pushdir='y')
 # dtecho,Vbasal = an.pushover2(coordz[-1]*0.03, 0.001, len(coordz)-1, 2)
 # plt.show()

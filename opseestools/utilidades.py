@@ -11,6 +11,7 @@ from scipy.signal import argrelextrema
 from scipy.stats import gmean
 from scipy.fft import fft, ifft
 from scipy.integrate import cumulative_trapezoid
+
 import pandas as pd
 
 def MomentCurvature(secTag, axialLoad, maxK, numIncr=300):
@@ -1350,4 +1351,11 @@ def create_slabs(coordx, coordy, coordz, hslab, Eslab, pois, seclosa = 12345, de
                 slabtags.append(tag)
                 tag = tag + 1
     return slabtags           
-    
+
+def espectroNSR(Aa,Av,Fa,Fv,I):
+    T = np.linspace(0,4,500)
+    T0 = 0.1*(Av*Fv)/(Aa*Fa)
+    Tc = 0.48*(Av*Fv)/(Aa*Fa)
+    Tl = 2.4*Fv
+    Sa = (T < T0)*2.5*Aa*Fa*I*(0.4+0.6*T/T0) + ((T0 < T) & (T < Tc))*2.5*Aa*Fa*I + ((Tc < T) & (T < Tl))*1.2*Av*Fv*I/T + (Tl < T)*1.2*Av*Fv*I*Tl/T**2
+    return T,Sa
