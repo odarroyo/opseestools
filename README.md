@@ -33,7 +33,7 @@ import opstools.Lib_frag as ut (or any other name)
 
 ## Examples of use
 
-#### You can find Jupyter Notebooks with examples of using the library on the examples folder in this GitHub repository. The list of examples are the following:
+#### You can find Jupyter Notebooks and python scripts with examples of using the library on the examples folder in this GitHub repository. The list of examples are the following:
 
 Example 1: how to install opseestools
 
@@ -50,6 +50,12 @@ Example 6: using the analysis module and the lib_frag to perform an multiple rec
 Example 7: demonstrating the functions added to the utility module in v0.4 that streamline creating reinforced concrete and steel frame models.
 
 Example 8: demonstrating the functions added to the utility module in v0.45 that further streamline creating reinforced concrete and steel frame models.
+
+Example 9: moment curvature of a T-shaped wall
+
+Example 10: example demonstrating the use of new commands in v0.6. These allow generating 3D RC Frame buildings regular in plan and height. The example creates a 3 story building and runs a pushover in under 80 lines of code.
+
+Example 11: example demonstrating the use of new commands in v0.6. These allow generating 2D RC Frame buildings. The example creates a 2 story building and runs a pushover in under 40 lines of code.
 
 ## Function help
 

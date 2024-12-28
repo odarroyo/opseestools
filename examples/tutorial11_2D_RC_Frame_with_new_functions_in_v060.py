@@ -45,8 +45,8 @@ As5 = 0.0002 # area barra #5
 col30x30 = 101 # tag de la columna
 vig30x40 = 201 # tag de la viga
 
-ut.create_rect_RC_section(col30x30, Hcol, Bcol, c, tag_conf, tag_noconf, tag_acero , 4, As4, 4, As4, 2, As4)
-ut.create_rect_RC_section(vig30x40, Hvig, Bvig, c, tag_conf, tag_noconf, tag_acero , 4, As4, 4, As4)
+ut.create_rect_RC_section(col30x30, Hcol, Bcol, c, tag_conf, tag_noconf, tag_acero , 4, As5, 4, As5, 4, As5)
+ut.create_rect_RC_section(vig30x40, Hvig, Bvig, c, tag_conf, tag_noconf, tag_acero , 3, As4, 4, As4)
 
 
 #%% Elementos
@@ -67,8 +67,6 @@ opsv.plot_model()
 
 ut.pushover_loads(coordy)
 dtecho,Vbasal = an.pushover2(0.05*coordy[-1],0.001,getNodeTags()[-1],1)
-
-
 
 
 
