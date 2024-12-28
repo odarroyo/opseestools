@@ -57,6 +57,12 @@ Example 10: example demonstrating the use of new commands in v0.6. These allow g
 
 Example 11: example demonstrating the use of new commands in v0.6. These allow generating 2D RC Frame buildings. The example creates a 2 story building and runs a pushover in under 40 lines of code.
 
+Example 12: using functions in v0.6 to generate a RC frame building and apply a cyclic pushover analysis using a function available in the analysis module.
+
+Example 13: example of a 3D building subjected to a dynamic analysis using a function available in the analysis module.
+
+Example 14: example of a new function implemented in v0.65 that calculates the confinement for an RC section according to Mander model.
+
 ## Function help
 
 Each function has a docstring with help for the function, detailing the inputs and outputs. 
