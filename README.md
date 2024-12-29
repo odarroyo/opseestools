@@ -15,7 +15,7 @@ opseestools can be installed from the Python Package Index as:
 
 ## Description
 
-opseestools comprises a set of functions in three modules:
+opseestools comprises a set of functions in four modules:
 
 1) 2D Analysis functions. This library is called analysis. You can import it as:
 
