@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Mar 30 12:50:00 2022
 
-@author: orlandoaram
-"""
 from openseespy.opensees import *
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,7 +7,6 @@ from scipy.signal import argrelextrema
 from scipy.stats import gmean
 from scipy.fft import fft, ifft
 from scipy.integrate import cumulative_trapezoid
-
 import pandas as pd
 
 def MomentCurvature(secTag, axialLoad, maxK, numIncr=300):
@@ -211,7 +206,7 @@ def testMaterial(matTag,displ):
 def BuildRCSection(ID,HSec,BSec,coverH,coverB,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot,barAreaInt,nfCoreY,nfCoreZ,nfCoverY,nfCoverZ):
     '''
     Define a procedure which generates a rectangular reinforced concrete section with one layer of steel at the top & bottom, skin reinforcement and a confined core.
-	by: Silvia Mazzoni, 2006, adapted from Michael H. Scott, 2003
+	Original TCL version by: Silvia Mazzoni, 2006, adapted from Michael H. Scott, 2003
 
     Parameters
     ----------
@@ -461,15 +456,43 @@ def newmarkL(T,xi,GM,delta_t,betha = 1/4, gamma = 1/2 ,u0 = 0,v0 = 0,P0 = 0):
 def newmarkLA(T,xi,GM,delta_t,flag = 'all',betha = 1/4, gamma = 1/2 ,u0 = 0,v0 = 0,P0 = 0):
     '''
     Calculates the response of a SDOF based on the Newmark method
-    \n T: period of SDOF
-    \n xi: percent of critical damping
-    \n GM: ground motion acceleration. use consistent units
-    \n delta_t: dt of the record
-    \n flag: use 'max' to obtain maximum values of displacement, velocity and absolute acceleration
-    \n betha, gamma: parameters of Newmark Method. 
-    \n u0,v0,a0: initial conditions for displacement, velocity and acceleration
+
+    Parameters
+    ----------
+    T : Float
+        period of SDOF.
+    xi : Float
+        percent of critical damping.
+    GM : array
+        ground motion acceleration. use consistent units.
+    delta_t : float
+        dt of the record.
+    flag : int, optional
+        use 'max' to obtain maximum values of displacement, velocity and absolute acceleration. The default is 'all'.
+    betha : float, optional
+        Parameter of the Newmark method. The default is 1/4.
+    gamma : float, optional
+        Parameter of the Newmark method. The default is 1/2.
+    u0 : float, optional
+        Initial displacement. The default is 0.
+    v0 : float, optional
+        Initial velocity. The default is 0.
+    P0 : float, optional
+        Initial force (m times acceleration). The default is 0.
+
+    Returns
+    -------
+    TT : array
+        time of the record.
+    DD : array
+        displacement history.
+    VV : array
+        velocity history.
+    AA : array
+        acceleration history.
+
     '''
-    
+        
     w = 2*np.pi/T
     m = 1.0
     k = m*w**2
@@ -513,6 +536,28 @@ def newmarkLA(T,xi,GM,delta_t,flag = 'all',betha = 1/4, gamma = 1/2 ,u0 = 0,v0 =
     return TT,DD,VV,AA
 
 def spectrum2(GM,delta_t,xi):
+    '''
+    Calculates the spectrum of a function using the Newmark method for solving the SDOF system
+
+    Parameters
+    ----------
+    GM : string
+        Name of the .txt file with the record. One point per line.
+    delta_t : float
+        time increment of the record.
+    xi : float
+        percent of critical damping as float (i.e. use 0.05 for 5%).
+
+    Returns
+    -------
+    T : TYPE
+        DESCRIPTION.
+    Sa : TYPE
+        DESCRIPTION.
+
+    '''
+    
+    
     N = 400
     T = np.linspace(0.02,3,N)
     Sa = np.zeros(N)
@@ -529,14 +574,35 @@ def spectrum2(GM,delta_t,xi):
 
 
 def spectrum4(GM,dt,xi=0.05,rango=[0.02,3.0],N=300):
-    ''' Calculates the Sa spectrum for a record
-        \n GM: el registro en .txt. Por ejemplo 'GM01.txt'
-        \n dt: dt del registro
-        \n xi: porcentaje del amortiguamiento crítico
-        \n rango: rango de periodos en un vector
-        \n N: número de puntos
-           
     '''
+    Calculates the Sa spectrum for a record using OpenSees sdfResponse
+
+    Parameters
+    ----------
+    GM : string
+        Name of the .txt file with the record (e.g. GM01.txt). One point per line.
+    dt : float
+        time increment of the record.
+    xi : float, optional
+        percent of critical damping as float (i.e. use 0.05 for 5%). The default is 0.05.
+    rango : list, optional
+        range of periods to calculate the spectrum. The default is [0.02,3.0].
+    N : integer, optional
+        number of periods to compute in the period range. The default is 300.
+
+    Returns
+    -------
+    T : array
+        periods.
+    Sa : array
+        spectral pseudo-acceleration for each period in T.
+    U : array
+        spectral displacement for each period in T.
+    A : array
+        acceleration for each period in T.
+
+    '''
+    
     m = 1
     T = np.linspace(rango[0],rango[1],N)
     w = 2*np.pi/T
@@ -566,11 +632,23 @@ def spectrum4(GM,dt,xi=0.05,rango=[0.02,3.0],N=300):
 # plt.plot(T,Sa)
 
 def creategrid(xloc,yloc):
-    ''' Creates a 2D grid 
-        \n xloc: coordinates of x
-        \n yloc: coordinates of y
-        Function returns nodes 1000,1001... for the first vertical axis, then 2000,2001... and so on
     '''
+    Function that creates a rectangular 2D grid based on specified x and y coordinates
+
+    Parameters
+    ----------
+    xloc : list
+        List with the x coordinates.
+    yloc : list
+        List with the y coordinates.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    
     ny = len(yloc)
     nx = len(xloc)
     # ----------------------Crear nodos de la estructura----------------------|
@@ -581,6 +659,7 @@ def creategrid(xloc,yloc):
 
 def creategrid3D(xloc,yloc,zloc,dia=1,floor_mass=[1.0]):
     '''
+    Creates a three-dimensional grid of points.
     
     Parameters
     ----------
@@ -591,7 +670,7 @@ def creategrid3D(xloc,yloc,zloc,dia=1,floor_mass=[1.0]):
     zloc : list
         List of Z coordinates.
     dia : int, optional
-        DESCRIPTION. The default is 0. Change to 1 for a Rigid Diaphragm
+        DESCRIPTION. The default is 1. Change to 0 for no creating a diaphragm.
     floor_mass : list, optional
         List with the masses per floor starting from the first floor to the roof. It must have one less than zloc.
     floor_inertia : list, optional
@@ -599,8 +678,8 @@ def creategrid3D(xloc,yloc,zloc,dia=1,floor_mass=[1.0]):
 
     Returns
     -------
-    df : TYPE
-        DESCRIPTION.
+    df : Dataframe
+        Dataframe with the information of the created points.
 
     '''
     ny = len(yloc)
@@ -619,7 +698,7 @@ def creategrid3D(xloc,yloc,zloc,dia=1,floor_mass=[1.0]):
     df = pd.DataFrame(coord, columns=['nlabel','x','y','z','floor'])
     if dia == 1:
         for z in range(1,len(zloc)):
-            node(z,np.max(xloc)/2,np.max(xloc)/2,zloc[z])
+            node(z,np.max(xloc)/2,np.max(yloc)/2,zloc[z])
             nfloor = df[df['floor']==z]
             nodes_floor = nfloor.nlabel.to_list()            
             fix(z,0,0,1,1,1,0)
@@ -629,18 +708,37 @@ def creategrid3D(xloc,yloc,zloc,dia=1,floor_mass=[1.0]):
     return df
 
 def BuildISection(secID,matID,d,tw,bf,tf,nfdw,nftw,nfbf,nftf):
-    ''' función para crear una sección en forma de I. 
-        \n Recibe:
-        \n secID: ID para la sección a crear
-        \n matID: material de la sección
-        \n d: altura total de la sección
-        \n tw: espesor del alma
-        \n bf: ancho de la aleta
-        \n tf: espesor de la aleta
-        \n nfdw, nftw, nfbf, nftf: fibras a lo largo de la longitud del alma, ancho del alma, ancho y espesor de la aleta
     '''
+    Generates an I-shaped fiber section
     
-    
+    Parameters
+    ----------
+    secID : int
+        ID of the section to be created.
+    matID : int
+        ID of the material of the section.
+    d : float
+        section height.
+    tw : float
+        section web width.
+    bf : float
+        section flange width.
+    tf : float
+        section flange height.
+    nfdw : float
+        number of fibers along the web height.
+    nftw : float
+        number of fibers along the web width.
+    nfbf : float
+        number of fibers along the flange width.
+    nftf : float
+        number of fibers along the flange height.
+
+    Returns
+    -------
+    .
+
+    '''
     dw = d-2*tf
     y1 = -d/2
     y2 = -dw/2 
@@ -799,6 +897,28 @@ def residual_disp(drifts,npts):
     return resdrift
                        
 def Sa_avg(T,Sa,T2 = np.linspace(0.02,3,299)):
+    '''
+    Calculates the average spectral acceleration for a record
+
+    Parameters
+    ----------
+    T : numpy array
+        Period range of the spectrum of the record.
+    Sa : numpy array
+        pseudo-acceleration of the record.
+    T2 : numpy array, optional
+        Period range to calculate the Sa average. The default is np.linspace(0.02,3,299).
+
+    Returns
+    -------
+    T2 : numpy array
+        Period range to calculate the Sa average.
+    sa_avg : numpy array
+        average pseudo-acceleration of the record..
+
+    '''
+    
+    
     sa_avg = np.zeros(len(T2))
     # sa_avg2 = np.zeros(len(T2)) # en casi que queramos definir con media aritmetica
     for ind,tt in enumerate(T2):
@@ -813,6 +933,8 @@ def Sa_avg(T,Sa,T2 = np.linspace(0.02,3,299)):
 
 def EAF(t,a):
     '''
+    Calculates the fourier spectrum of a signal
+    
     Parameters
     ----------
     t : numpy array
@@ -927,7 +1049,7 @@ def e20Lobatto(Gfc,Lel,npint,fc,E,e0):
     
     return e20
 
-def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = int(100), unctag = int(102), conftag = int(101)):
+def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = int(100), unctag = int(102), conftag = int(101), nps = 4):
     '''
     Generates materials for concrete and steel. The concrete has regularization applied
     and generates both, unconfined and confined concrete. Steel is defined based on the 
@@ -949,6 +1071,8 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
         Tag of the unconfined concrete material. The default is 102.
     conftag : Integer, optional
         Tag of the confined concrete material. The default is 101.
+    nps: Integer, optional
+        Number of points of the Hysteretic material for the steel. The default is 4. Can use 3 too.
 
     Returns
     -------
@@ -986,7 +1110,11 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
         s_steel1, e_steel1 = dhakal(fy_1, fu_1, ey_1, eh, eu, L, D)
         s1p1, s2p1, s3p1, s4p1, e1p1, e2p1, e3p1, e4p1 = s_steel1[0], s_steel1[1], s_steel1[2], s_steel1[3],e_steel1[0], e_steel1[1], e_steel1[2], e_steel1[3]
         s1n1, s2n1, s3n1, s4n1, e1n1, e2n1, e3n1, e4n1 = s_steel1[4], s_steel1[5], s_steel1[6], s_steel1[7],e_steel1[4], e_steel1[5], e_steel1[6], e_steel1[7]
-        uniaxialMaterial('HystereticSM',steeltag,'-posEnv',s1p1,e1p1,s2p1,e2p1,s3p1,e3p1,s4p1,e4p1,'-negEnv',s1n1,e1n1,s2n1,e2n1,s3n1,e3n1,s4n1,e4n1)
+        if nps == 4:
+            uniaxialMaterial('HystereticSM',steeltag,'-posEnv',s1p1,e1p1,s2p1,e2p1,s3p1,e3p1,s4p1,e4p1,'-negEnv',s1n1,e1n1,s2n1,e2n1,s3n1,e3n1,s4n1,e4n1)
+        else:
+            uniaxialMaterial('Hysteretic',steeltag,s1p1,e1p1,s3p1,e3p1,s4p1,e4p1,s1n1,e1n1,s2n1,e2n1,s4n1,e4n1,1.0,1.0,0.0,0.0)
+
         # Para el concreto confinado
         k=1.25
         fcc=fc*k
@@ -1006,7 +1134,10 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
         s_steel1, e_steel1 = dhakal(fy_1, fu_1, ey_1, eh, eu, L, D)
         s1p1, s2p1, s3p1, s4p1, e1p1, e2p1, e3p1, e4p1 = s_steel1[0], s_steel1[1], s_steel1[2], s_steel1[3],e_steel1[0], e_steel1[1], e_steel1[2], e_steel1[3]
         s1n1, s2n1, s3n1, s4n1, e1n1, e2n1, e3n1, e4n1 = s_steel1[4], s_steel1[5], s_steel1[6], s_steel1[7],e_steel1[4], e_steel1[5], e_steel1[6], e_steel1[7]
-        uniaxialMaterial('HystereticSM',steeltag,'-posEnv',s1p1,e1p1,s2p1,e2p1,s3p1,e3p1,s4p1,e4p1,'-negEnv',s1n1,e1n1,s2n1,e2n1,s3n1,e3n1,s4n1,e4n1)
+        if nps == 4:
+            uniaxialMaterial('HystereticSM',steeltag,'-posEnv',s1p1,e1p1,s2p1,e2p1,s3p1,e3p1,s4p1,e4p1,'-negEnv',s1n1,e1n1,s2n1,e2n1,s3n1,e3n1,s4n1,e4n1)
+        else:
+            uniaxialMaterial('Hysteretic',steeltag,s1p1,e1p1,s3p1,e3p1,s4p1,e4p1,s1n1,e1n1,s2n1,e2n1,s4n1,e4n1,1.0,1.0,0.0,0.0)
         # Para el concreto confinado
         k=1.3
         fcc=fc*k
@@ -1353,9 +1484,156 @@ def create_slabs(coordx, coordy, coordz, hslab, Eslab, pois, seclosa = 12345, de
     return slabtags           
 
 def espectroNSR(Aa,Av,Fa,Fv,I):
+    '''
+    Creates the design spectrum per the Colombian NSR-10
+    
+    Parameters
+    ----------
+    Aa : Float
+        Aa per NSR-10.
+    Av : Float
+        Av per NSR-10.
+    Fa : Float
+        Fa per NSR-10.
+    Fv : Float
+        Fv per NSR-10.
+    I : Float
+        I per NSR-10.
+
+    Returns
+    -------
+    T : Numpy Array
+        Array with the periods.
+    Sa : Numpy Array
+        Array with pseudo-acceleration.
+
+    '''
+    
     T = np.linspace(0,4,500)
     T0 = 0.1*(Av*Fv)/(Aa*Fa)
     Tc = 0.48*(Av*Fv)/(Aa*Fa)
     Tl = 2.4*Fv
     Sa = (T < T0)*2.5*Aa*Fa*I*(0.4+0.6*T/T0) + ((T0 < T) & (T < Tc))*2.5*Aa*Fa*I + ((Tc < T) & (T < Tl))*1.2*Av*Fv*I/T + (Tl < T)*1.2*Av*Fv*I*Tl/T**2
     return T,Sa
+
+def coefmander(Rmin, Rmax):
+    '''
+    Function that returns the effective k for a confined section based on Mander model
+
+    Parameters
+    ----------
+    Rmin : float
+        Minimum effective confined ratio.
+    Rmax : float
+        Maximum effective confined ratio..
+
+    Returns
+    -------
+    k : float
+        Mander k to calculate k*fc confined concrete strength.
+
+    '''
+    xloc = np.linspace(0, 0.3, 16).tolist()                          # Definición coordenadas locales en dirección X del arquetipo.
+    yloc = np.linspace(0, 0.3, 16).tolist() 
+    fmin, fmax=np.meshgrid([xloc],[yloc])
+    V=np.array([[1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000,1.000],
+                [1.050,1.171,1.171,1.171,1.171,1.171,1.171,1.171,1.171,1.171,1.171,1.171,1.171,1.171,1.171,1.171],
+                [1.100,1.186,1.264,1.264,1.264,1.264,1.264,1.264,1.264,1.264,1.264,1.264,1.264,1.264,1.264,1.264],
+                [1.129,1.221,1.300,1.371,1.371,1.371,1.371,1.371,1.371,1.371,1.371,1.371,1.371,1.371,1.371,1.371],
+                [1.150,1.250,1.343,1.414,1.486,1.486,1.486,1.486,1.486,1.486,1.486,1.486,1.486,1.486,1.486,1.486],
+                [1.179,1.279,1.379,1.450,1.514,1.579,1.579,1.579,1.579,1.579,1.579,1.579,1.579,1.579,1.579,1.579],
+                [1.200,1.300,1.407,1.486,1.550,1.621,1.671,1.671,1.671,1.671,1.671,1.671,1.671,1.671,1.671,1.671],
+                [1.221,1.329,1.436,1.500,1.586,1.664,1.700,1.757,1.757,1.757,1.757,1.757,1.757,1.757,1.757,1.757],
+                [1.236,1.350,1.450,1.529,1.614,1.686,1.743,1.793,1.829,1.829,1.829,1.829,1.829,1.829,1.829,1.829],
+                [1.250,1.364,1.479,1.550,1.643,1.714,1.771,1.821,1.871,1.914,1.914,1.914,1.914,1.914,1.914,1.914],
+                [1.257,1.386,1.486,1.571,1.664,1.736,1.793,1.850,1.907,1.943,1.971,1.971,1.971,1.971,1.971,1.971],
+                [1.279,1.400,1.500,1.600,1.686,1.757,1.814,1.879,1.929,1.964,2.007,2.050,2.050,2.050,2.050,2.050],
+                [1.286,1.414,1.521,1.614,1.700,1.779,1.836,1.893,1.950,1.986,2.036,2.071,2.100,2.100,2.100,2.100],
+                [1.300,1.421,1.529,1.629,1.714,1.786,1.864,1.914,1.979,2.014,2.063,2.114,2.136,2.186,2.186,2.186],
+                [1.300,1.429,1.543,1.643,1.729,1.800,1.879,1.936,1.986,2.036,2.086,2.121,2.164,2.200,2.243,2.243],
+                [1.307,1.443,1.550,1.650,1.736,1.814,1.893,1.950,2.014,2.500,2.100,2.570,2.186,2.229,2.257,2.300]], dtype=float)
+    
+    f = interp2d(fmin, fmax, V, kind='linear')
+    k = f(Rmin, Rmax)[0]
+    
+    return k
+
+#-----%% Cálculos
+
+def mander(b,d,s,rec,dbl,Nb,Nd,de,fc,ec,fyy,Neb,Ned):
+    '''
+    Function that calculates the two points (max compression and ultimate) for the confined concrete based on Mander model
+    
+    Parameters
+    ----------
+    b : float
+        section width.
+    d : float
+        section height.
+    s : float
+        stirrup spacing.
+    rec : float
+        clear distance to stirrups.
+    dbl : float
+        diameter of longitudinal bars.
+    Nb : int
+        number of longitudinal bars in the width direction at the extremes.
+    Nd : int
+        number of longitudinal bars in the height direction at the extremes.
+    de : float
+        stirrup diameter.
+    fc : float
+        concrete compressive strength.
+    ec : float
+        concrete strain at compressive strength.
+    fyy : float
+        steel yield stress.
+    Neb : int
+        number of stirrups along the width.
+    Ned : int
+        number of stirrups along the height.
+
+    Returns
+    -------
+    ecc : float
+        strain at maximum compression for the confined concrete.
+    fcc : float
+        stress at maximum compression for the confined concrete.
+    ecu : float
+        ultimate strain for the confined concrete.
+    fccu : float
+        ultimate stress for the confined concrete.
+
+    '''
+    bc= b-2*rec-de
+    dc= d-2*rec-de
+    Ntb = 2*Nb+2*(Nd-2) #número total de barras
+    wb = (b-2*rec-Neb*de-Nb*dbl)/(Neb-1)
+    wd = (d-2*rec-Ned*de-Nd*dbl)/(Ned-1)
+    Ai = 2*(wb**2/6)+2*(wd**2/6)
+    sp= s-de
+    Aef= (bc*dc-Ai)*(1-(sp/(2*bc)))*(1-(sp/(2*dc))) #área efectiva
+    Ac= bc*dc 
+    Asl= Ntb*np.pi*dbl**2/4
+    Ase= np.pi*de**2/4
+    rhocc= Asl/Ac #refuerzolongitudinal
+    Acc= Ac*(1-rhocc)
+    ke= Aef/Acc #razón de confinamiento
+    rhox= (Ned*Ase)/(s*dc)
+    rhoy= (Neb*Ase)/(s*bc)
+    fx= rhox*fyy
+    fy= rhoy*fyy
+    fefex= ke*fx
+    fefey= ke*fy
+    fexfc= fefex/fc 
+    feyfc= fefey/fc
+    Rmin=min(fexfc,feyfc)
+    Rmax=max(fexfc,feyfc)
+    k = coefmander(Rmin,Rmax)
+    fcc= k*fc
+    # ec= 2*fc/E
+    ecc= ec*(1+5*((fcc/fc)-1))
+    ecu= 5*ecc
+    fcu=0.20*fc
+    fccu= 0.20*fcc
+    return ecc,fcc,ecu,fccu

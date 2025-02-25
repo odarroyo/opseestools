@@ -77,7 +77,7 @@ def fn_mle_pc(IM, num_gmrs, num_collapse):
     beta = x['x'][1]
     return theta, beta
 
-def plotfrag(theta,beta,x = np.linspace(0,3,100)):
+def plotfrag(theta,beta,x = np.linspace(0,6,100)):
     y = stats.lognorm.cdf(x,s=beta,scale=theta)
     plt.plot(x,y)
     

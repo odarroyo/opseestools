@@ -11,7 +11,14 @@ import numpy as np
 # ANALISIS DE GRAVEDAD
 # =============================
 def gravedad():
-    
+    '''
+    Function to perform an static analysis
+
+    Returns
+    -------
+    None.
+
+    '''    
 # Create the system of equation, a sparse solver with partial pivoting
     system('BandGeneral')
 
@@ -134,7 +141,7 @@ def pushover2(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
     # system('SparseSYM')
     # system('BandSPD')
     # system('ProfileSPD')
-    test('EnergyIncr', Tol, maxNumIter)
+    test('NormUnbalance', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('DisplacementControl', IDctrlNode, IDctrlDOF, Dincr)
     analysis('Static')
@@ -1061,10 +1068,11 @@ def dinamicoBD(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes =
     
     return tiempo,techo1,techo2,techoT
 
-def dinamicoBD2(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nodes_control,elements,modes = [0,2],Kswitch = 1,Tol=1e-4):
+def dinamicoBD2(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nodes_control,elements,modes = [0,2],Kswitch = 1,Tol=1e-4,eletype='wall'):
     '''
-    Performs a dynamic analysis applying both components of a ground motion and recording the displacement of a user selected node. To be used ONLY with quadrilateral elements with 24DOF.
+    Performs a dynamic analysis applying both components of a ground motion and recording the displacement of a user selected node. To be used ONLY with quadrilateral elements with 24DOF if wall element and 12DOF if frame element.
     
+    Parameters
     ----------
     recordName : list
         list with the names of the record pair including file extension (i.e., 'GM01.txt'). It must have one record instant per line and each record. the records must be pairs, so the function expects that they are of the same length. 
@@ -1092,6 +1100,9 @@ def dinamicoBD2(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nodes_
         Use it to define which stiffness matrix should be used for the ramping. The default is 1 that uses initial stiffness. Input 2 for current stifness.
     Tol : float, optional
         Tolerance for the analysis. The default is 1e-4 because it uses the NormUnbalance test.
+    eletype : string, optional
+        Input "wall" for wall elements based on 24DOF or "frame" for 12DOF frame elements
+
 
     Returns
     -------
@@ -1188,7 +1199,11 @@ def dinamicoBD2(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nodes_
     t = [getTime()]
     nels = len(elements)
     nnodos = len(nodes_control)
-    Eds = np.zeros((nels, Nsteps+1, 24))
+    if eletype == 'wall':
+        ndofe = 24
+    elif eletype == 'frame':
+        ndofe = 12
+    Eds = np.zeros((nels, Nsteps+1, ndofe))
     node_disp = np.zeros((Nsteps + 1, nnodos)) # para grabar los desplazamientos de los nodos
     node_vel = np.zeros((Nsteps + 1, nnodos)) # para grabar los desplazamientos de los nodos
     node_acel = np.zeros((Nsteps + 1, nnodos)) # para grabar los desplazamientos de los nodos
@@ -1459,6 +1474,7 @@ def dinamicoAnim(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes
 def dinamicoIDA2(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes = [0,2],Kswitch = 1,Tol=1e-3):
     '''  
     Performs a dynamic analysis recording the displacement of a user selected node.
+    
     Parameters
     ----------
     recordName : string
