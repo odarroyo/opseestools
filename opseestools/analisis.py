@@ -564,7 +564,7 @@ def pushover2R_Rot_def(Dmax,Dincr,IDctrlNode,IDctrlDOF,columns,beams,ele,der,nod
     return techo, V, Eds, f_puntalA, f_puntalB, node_disp, drift, unicos2, Prot_cols,Prot_beams, fiber_s, fiber_c
 
 
-def pushover2Rot(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
+def pushover2Rot(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8,forces=False):
     
     '''
     Parameters
@@ -622,7 +622,7 @@ def pushover2Rot(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
     dtecho = [nodeDisp(IDctrlNode,IDctrlDOF)]
     Vbasal = [getTime()]
     Prot = np.zeros((nels, Nsteps+1, 3)) # para grabar las rotaciones de los elementos
-    
+    Eds = np.zeros((nels, Nsteps+1, 6)) 
     for k in range(Nsteps):
         ok = analyze(1)
         # ok2 = ok;
@@ -655,6 +655,14 @@ def pushover2Rot(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
             Prot[el_i , k+1, :] = [eleResponse(ele_tag,'plasticDeformation')[0],
                                   eleResponse(ele_tag,'plasticDeformation')[1],
                                   eleResponse(ele_tag,'plasticDeformation')[2]]
+            if forces != False:
+                Eds[el_i , k+1, :] = [eleResponse(ele_tag,'globalForce')[0],
+                                     eleResponse(ele_tag,'globalForce')[1],
+                                     eleResponse(ele_tag,'globalForce')[2],
+                                     eleResponse(ele_tag,'globalForce')[3],
+                                     eleResponse(ele_tag,'globalForce')[4],
+                                     eleResponse(ele_tag,'globalForce')[5]]
+            
         
         dtecho.append(nodeDisp(IDctrlNode,IDctrlDOF))
         Vbasal.append(getTime())
@@ -676,7 +684,10 @@ def pushover2Rot(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
         plt.xlabel('Deriva de techo (%)')
         plt.ylabel('V/W')
     
-    return techo, V, Prot
+    if forces != False:
+        return techo, V, Prot,Eds
+    else:
+        return techo, V, Prot
 
 def pushover2D(Dmax,Dincr,IDctrlNode,IDctrlDOF,nodes_control,norm=[-1,1],Tol=1e-8):
     '''
