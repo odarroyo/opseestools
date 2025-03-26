@@ -5,7 +5,11 @@ This is a library to be used with OpenSeesPy.
 It includes a collection of analysis functions that are useful if you are analyzing frames or wall buildings both in two and three dimensions, storing the results in Python variables. 
 It also includes another useful tools for processing results and creating scripts
 
-The opseestools paper is available at SoftwareX, so you can cite it if you use it in your research: https://www.sciencedirect.com/science/article/pii/S2352711024002036 
+## How to cite
+
+The opseestools paper is available at SoftwareX, so you can cite it if you use it in your research: https://www.sciencedirect.com/science/article/pii/S2352711024002036
+
+Arroyo, O., Feliciano, D., Novoa, D., & Valcárcel, J. (2024). opseestools: A Python library to streamline OpenSeesPy workflows. SoftwareX, 27, 101832.
 
 ## Installation
 
