@@ -2740,6 +2740,255 @@ def dinamicoIDA5(acceleration,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,ele
     wipe()
     return tiempo,techo,Eds,Strains,cStress,sStress,node_disp,node_vel,node_acel,drift
 
+def dinamicoIDA2DB(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes = [0,2],Kswitch = 1,Tol=1e-3, odb = 1, odbtag = 1000):
+    import opstool as opst
+    '''  
+    Performs a dynamic analysis recording the displacement of a user selected node.
+    
+    Parameters
+    ----------
+    recordName : string
+        Name of the record including file extension (i.e., 'GM01.txt'). It must have one record instant per line. 
+    dtrec : float
+        time increment of the record.
+    nPts : integer
+        number of points of the record.
+    dtan : float
+        time increment to be used in the analysis. If smaller than dtrec, OpenSeesPy interpolates.
+    fact : float
+        scale factor to apply to the record.
+    damp : float
+        Damping percentage in decimal (i.e., use 0.03 for 3%).
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    modes : list, optional
+        Modes of the structure to apply the Rayleigh damping. The default is [0,2] which uses the first and third mode.
+    Kswitch : int, optional
+        Use it to define which stiffness matrix should be used for the ramping. The default is 1 that uses initial stiffness. Input 2 for current stifness.
+    Tol : float, optional
+        Tolerance for the analysis. The default is 1e-4 because it uses the NormUnbalance test.
+
+    Returns
+    -------
+    tiempo : numpy array
+        Numpy array with analysis time.
+    techo : numpy array
+        Displacement of the control node.
+
+    '''
+    # PARA SER UTILIZADO PARA CORRER EN PARALELO LOS SISMOS
+    
+    # record es el nombre del registro, incluyendo extensión. P.ej. GM01.txt
+    # dtrec es el dt del registro
+    # nPts es el número de puntos del análisis
+    # dtan es el dt del análisis
+    # fact es el factor escalar del registro
+    # damp es el porcentaje de amortiguamiento (EN DECIMAL. p.ej: 0.03 para 3%)
+    # Kswitch recibe: 1: matriz inicial, 2: matriz actual
+    
+    maxNumIter = 10
+    
+    # creación del pattern
+    
+    timeSeries('Path',1000,'-filePath',recordName,'-dt',dtrec,'-factor',fact)
+    pattern('UniformExcitation',  1000,   IDctrlDOF,  '-accel', 1000)
+    
+    # damping
+    nmodes = max(modes)+1
+    eigval = eigen(nmodes)
+    
+    eig1 = eigval[modes[0]]
+    eig2 = eigval[modes[1]]
+    
+    w1 = eig1**0.5
+    w2 = eig2**0.5
+    
+    beta = 2.0*damp/(w1 + w2)
+    alfa = 2.0*damp*w1*w2/(w1 + w2)
+    
+    if Kswitch == 1:
+        rayleigh(alfa, 0.0, beta, 0.0)
+    else:
+        rayleigh(alfa, beta, 0.0, 0.0)
+    
+    # configuración básica del análisis
+    wipeAnalysis()
+    constraints('Transformation')
+    numberer('RCM')
+    system('BandGeneral')
+    test('NormUnbalance', Tol, maxNumIter)
+    algorithm('Newton')    
+    integrator('Newmark', 0.5, 0.25)
+    analysis('Transient')
+    
+    # Otras opciones de análisis    
+    tests = {1:'NormDispIncr', 2: 'RelativeEnergyIncr', 4: 'RelativeNormUnbalance',5: 'RelativeNormDispIncr', 6: 'NormUnbalance'}
+    algoritmo = {1:'KrylovNewton', 2: 'SecantNewton' , 4: 'RaphsonNewton',5: 'PeriodicNewton', 6: 'BFGS', 7: 'Broyden', 8: 'NewtonLineSearch'}
+
+    # rutina del análisis
+    
+    Nsteps =  int(dtrec*nPts/dtan)
+    dtecho = [nodeDisp(IDctrlNode,IDctrlDOF)]
+    t = [getTime()]
+    
+    if odb == 1:
+        ODB = opst.post.CreateODB(odb_tag=odbtag)
+    
+    for k in range(Nsteps):
+        ok = analyze(1,dtan)
+        # ok2 = ok;
+        # En caso de no converger en un paso entra al condicional que sigue
+        if ok != 0:
+            print('configuración por defecto no converge en tiempo: ',getTime())
+            for j in algoritmo:
+                if j < 4:
+                    algorithm(algoritmo[j], '-initial')
+    
+                else:
+                    algorithm(algoritmo[j])
+                
+                # el test se hace 50 veces más
+                test('NormUnbalance', Tol, maxNumIter*10)
+                ok = analyze(1,dtan)
+                if ok == 0:
+                    # si converge vuelve a las opciones iniciales de análisi
+                    test('NormUnbalance', Tol, maxNumIter)
+                    algorithm('Newton')
+                    break
+                    
+        if ok != 0:
+            print('Análisis dinámico fallido')
+            print('Desplazamiento alcanzado: ',nodeDisp(IDctrlNode,IDctrlDOF),'m')
+            break
+        ODB.fetch_response_step()    
+        
+        dtecho.append(nodeDisp(IDctrlNode,IDctrlDOF))
+        t.append(getTime())
+        
+    # plt.figure()
+    # plt.plot(t,dtecho)
+    # plt.xlabel('tiempo (s)')
+    # plt.ylabel('desplazamiento (m)')
+    
+    techo = np.array(dtecho)
+    tiempo = np.array(t)
+    if odb == 1:
+        ODB.save_response()
+    wipe()
+    return tiempo,techo
+
+def pushover2DB(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-4,odb = 1, odbtag = 1001):
+    '''
+    Function to calculate the pushover
+
+    Parameters
+    ----------
+    Dmax : float
+        Maximum displacement of the pushover.
+    Dincr : float
+        Increment in the displacement.
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    norm : list, optional
+        List that includes the roof displacement and the building weight to normalize the pushover and display the roof drift vs V/W plot. The default is [-1,1].
+    Tol : float, optional
+        Norm tolerance. The default is 1e-8.
+
+    Returns
+    -------
+    techo : numpy array
+        Numpy array with the roof displacement recorded during the Pushover.
+    V : numpy array
+        Numpy array with the base shear (when using an unitary patter) recorded during the Pushover. If pattern if not unitary it returns the multiplier
+
+    '''
+    # creación del recorder de techo y definición de la tolerancia
+    # recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
+    maxNumIter = 10
+    import opstool as opst
+      
+    # configuración básica del análisis
+    wipeAnalysis()
+    constraints('Transformation')
+    numberer('RCM')
+    system('BandGeneral')
+    # system('SparseSYM')
+    # system('BandSPD')
+    # system('ProfileSPD')
+    test('NormUnbalance', Tol, maxNumIter)
+    algorithm('Newton')    
+    integrator('DisplacementControl', IDctrlNode, IDctrlDOF, Dincr)
+    analysis('Static')
+    
+    # Otras opciones de análisis    
+    tests = {1:'NormDispIncr', 2: 'RelativeEnergyIncr', 4: 'RelativeNormUnbalance',5: 'RelativeNormDispIncr', 6: 'NormUnbalance'}
+    algoritmo = {1:'KrylovNewton', 2: 'SecantNewton' , 4: 'RaphsonNewton',5: 'PeriodicNewton', 6: 'BFGS', 7: 'Broyden', 8: 'NewtonLineSearch'}
+
+    # rutina del análisis
+    
+    Nsteps =  int(Dmax/ Dincr) 
+    dtecho = [nodeDisp(IDctrlNode,IDctrlDOF)]
+    Vbasal = [getTime()]
+    
+    ODB = opst.post.CreateODB(odb_tag=odbtag)
+    print('DB Created')
+    
+    for k in range(Nsteps):
+        ok = analyze(1)
+        # ok2 = ok;
+        # En caso de no converger en un paso entra al condicional que sigue
+        if ok != 0:
+            print('configuración por defecto no converge en desplazamiento: ',nodeDisp(IDctrlNode,IDctrlDOF))
+            for j in algoritmo:
+                if j < 4:
+                    algorithm(algoritmo[j], '-initial')
+    
+                else:
+                    algorithm(algoritmo[j])
+                
+                # el test se hace 50 veces más
+                test('EnergyIncr', Tol, maxNumIter*50)
+                ok = analyze(1)
+                if ok == 0:
+                    # si converge vuelve a las opciones iniciales de análisi
+                    test('EnergyIncr', Tol, maxNumIter)
+                    algorithm('Newton')
+                    break
+                    
+        if ok != 0:
+            print('Pushover analisis fallido')
+            print('Desplazamiento alcanzado: ',nodeDisp(IDctrlNode,IDctrlDOF),'m')
+            break
+        ODB.fetch_response_step()
+        
+        dtecho.append(nodeDisp(IDctrlNode,IDctrlDOF))
+        Vbasal.append(getTime())
+        
+    plt.figure()
+    plt.plot(dtecho,Vbasal)
+    plt.xlabel('desplazamiento de techo (m)')
+    plt.ylabel('corte basal (kN)')
+    
+    techo = np.array(dtecho)
+    V = np.array(Vbasal)
+    
+    ODB.save_response()
+    
+    if norm[0] != -1:
+        deriva = techo/norm[0]*100
+        VW = V/norm[1]
+        plt.figure()
+        plt.plot(deriva,VW)
+        plt.xlabel('Deriva de techo (%)')
+        plt.ylabel('V/W')
+    
+    return techo, V
+
+
 
 #%% ========================== DINÁMICO CON REMOVAL ===========================
 def dinamicoIDA4R(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,columns, beams, ele,der,elements,nodes_control,modes = [0,2],Kswitch = 1,Tol=1e-4):
