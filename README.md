@@ -69,6 +69,10 @@ Example 13: example of a 3D building subjected to a dynamic analysis using a fun
 
 Example 14: example of a new function implemented in v0.65 that calculates the confinement for an RC section according to Mander model.
 
+Example 15: Showing how to use a new function where we integrate opseestools with opstool, another great library. It also demonstrated how to create a video for the dynamic analysis using that library.
+
+Example 16: same as example 15, but for a pushover analysis.
+
 ## Function help
 
 Each function has a docstring with help for the function, detailing the inputs and outputs. 
