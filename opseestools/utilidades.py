@@ -1483,6 +1483,97 @@ def create_slabs(coordx, coordy, coordz, hslab, Eslab, pois, seclosa = 12345, de
                 tag = tag + 1
     return slabtags           
 
+def create_slabs_NL(coordx, coordy, coordz, hslab, Eslab, pois, seclosa = 12345, dens = 0.0, starttag = 0):
+    '''
+    create_slabs create a solid slab in the area of the model specified by the coordinates. It uses an LayeredShell formulation for the section and the Shell DKGQ. 
+
+    Parameters
+    ----------
+    coordx : list
+        DESCRIPTION.
+    coordy : list
+        DESCRIPTION.
+    coordz : list
+        DESCRIPTION.
+    hslab : float
+        slab height.
+    Eslab : float
+        modulus of elasticity of the slab material.
+    pois : float
+        poisson ratio.
+    seclosa : integer, optional
+        tag for the slab section. The default is 12345 to avoid conflicts with other tags.
+    dens : float, optional
+        Density of the slab. The default is 0.0.
+    starttag: integer, optional
+        Integer to use to start in another numbering scheme. Useful when you want to call the function several times. You enter the last integer of the previous call and it works.
+    Returns
+    -------
+    slabtags : list
+        List with the tags of the slabs
+
+    '''
+    # Definición de material 
+    #uniaxialMaterial('Elastic',1,E)
+    fc1 = 21000
+    ec = 0.002
+    E = 1000*4700*(fc1/1000)**0.5
+    fcu = 0.2*fc1
+    ecu = 0.004
+     
+    k=48.8/32.5
+    fcc=fc1*k
+    ecc= 2*fcc/E
+    fucc=0.2*fcc
+    eucc=0.02
+     
+    mul = 0.1
+    # mul = 0.7
+     
+    lam = 0.1
+    ft = 0.1*fc1*mul
+    ftc = 0.1*fcc*mul
+    Ets = 0.1*fc1/ec*mul
+    Etsc = 0.1*fcc/ecc*mul
+
+
+    Fy=420000.0
+    Es=210000000.0
+    ey = Fy/Es
+    fu = 630000.0
+    eult = 0.1
+    acerolosa = -131234
+    uniaxialMaterial('Hysteretic',acerolosa,Fy,ey,fu,eult,0.05*Fy,0.11,-Fy,-ey,-fu,-eult,-0.05*Fy,-0.11,1.0,1.0,0.0,0.0)
+    
+    
+    concNDtag = -101234 # tag para definir el concreto para el ND material
+    concNDtag2 = -111234 # tag para definir el concreto para el ND material
+    mallataglosa = -121234 # tag para malla de la losa
+    nDMaterial('PlaneStressUserMaterial', concNDtag, 40, 7, fc1, ft, -fcu, -ec, -ecu, 0.001, 0.05)
+    nDMaterial('PlateFromPlaneStress', concNDtag2, concNDtag, 1e10)
+    nDMaterial('PlateRebar', mallataglosa, acerolosa, 0)
+    
+    
+    h1 = hslab - 2*(0.02+0.008)
+    section('LayeredShell', seclosa, 8, concNDtag2,0.02,mallataglosa,0.004,mallataglosa,0.004,concNDtag2,h1/2,concNDtag2,h1/2,mallataglosa,0.004,mallataglosa,0.004,concNDtag2,0.02)
+    nx = len(coordx)
+    ny = len(coordy)
+    nz = len(coordz)
+    slabtags = []
+    for z in range(1,nz):
+        tag = 100*z + starttag
+        for i in range(nx - 1):
+            for j in range(ny - 1):
+                n1 = 10000*(i+1) + 100*j + z
+                n2 = 10000*(i+2) + 100*j + z
+                n3 = 10000*(i+2) + 100*(j+1) + z
+                n4 = 10000*(i+1) + 100*(j+1) + z
+                nodoslosa = [n1,n2,n3,n4]
+                element('ShellDKGQ', tag, *nodoslosa, seclosa)
+                slabtags.append(tag)
+                tag = tag + 1
+    return slabtags   
+
 def espectroNSR(Aa,Av,Fa,Fv,I):
     '''
     Creates the design spectrum per the Colombian NSR-10
