@@ -73,52 +73,12 @@ Example 15: Showing how to use a new function where we integrate opseestools wit
 
 Example 16: same as example 15, but for a pushover analysis.
 
+Example 17: same as example 15 but for a 2D model created using opseestools functions.
+
+Example 18: same as example 17 but for a dynamic analysis.
+
 ## Function help
 
 Each function has a docstring with help for the function, detailing the inputs and outputs. 
 
 You can summon this help by using the integrated Python help(), for example: help(an.gravedad) will return help for the gravedad function in the analysis module.
-
-## Overview of some functions
-
-You may find useful two functions that perform two of the most common analysis: pushover2 and dinamicoIDA4P:
-
-### pushover2(Dmax,Dincr,IDctrlNode,IDctrlDOF)
-
-This function performs a pushover analysis.
-Dmax = maximum displacement
-Dincr = increment of displacement
-IDctrlNode = control node for the pushover
-IDctrlDOF = DOF for pushover
-
-The function returns two variables as numpy arrays: roof displacement and base shear. In that order. An example call  of this function is:
-
-roof,shear = an.pushover2(1.5,0.01,9,1), which performs a pushover analysis using node 9 as a control node in the DOF = 1 until a displacement of 1.5 in 0.01 increments
-
-### dinamicoIDA4P(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,elements,nodes_control,modes = [0,2],Kswitch = 1,Tol=1e-4)
-
-This is a function to be used with any 2D model where each element has six degrees of freedom, e.g., any 2D frame (steel or concrete), with or without infills (as long as they're modeled as 6DOF elements) should work.
-
-Inputs are:
-- recordName: name of the txt file with the values of acceleration. e.g., 'GM01.txt'. Only one value per line
-- dtrec: dt of the record, i.e, time interval in seconds
-- nPts: number of points of the file
-- dtan: dt to be used by OpenSeesPy in the analysis
-- fact: scale factor to be applied to the record
-- damp: damping ratio to be applied to the model
-- IDctrlNode = control node for the pushover
-- IDctrlDOF = DOF for pushover
-- elements = list with elements to record forces. e.g, [3,5,6] records forces for elements 3, 5 and 6
-- nodes_control = nodes to record displacement in the DOF direction. This is meant to calculate interstory drifts, thereforce you should input one node per building floor
-- modes = list to include the number of modes for computing the damping in a Rayleight scheme. Default is [0,2], which uses the first and third mode. Adjust according to your needs.
-- Kswitch = 1 to use initial stiffness, 2 for current stiffness. Default is 1
-- Tol = tolerance for equilibrium. The algorithm uses the NormUnbalance test, which is appropriate for most circumstances and a 1e-4 value. Adjust the tolerance according to your problem size.
-
-Outputs are:
-- time: time of the analysis
-- roof: roof displacement
-- element_forces: numpy 3D array with the element forces. Think of this as a stack of 2D matrices, where each 2D matrix contains the response of one element: in the rows the analysis time time and in the columns the element DOF.
-- node_disp: 2D matrix where each row is time and columns have the node displacement in the specified DOF
-- node_vel: same as node_disp but for velocity
-- node_acel: same as node_disp but for acceleration. Returns the floor relative acceleration.
-- drift: same as node_disp but for interstory drifts.
