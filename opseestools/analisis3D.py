@@ -10,7 +10,7 @@ import numpy as np
 
 # ANALISIS DE GRAVEDAD
 # =============================
-def gravedad():
+def gravedad(Tol=1e-4):
     '''
     Function to perform an static analysis
 
@@ -20,7 +20,9 @@ def gravedad():
 
     '''    
 # Create the system of equation, a sparse solver with partial pivoting
-    system('BandGeneral')
+    # system('UmfPack')
+    # system('ProfileSPD')
+    system('UmfPack')
 
 # Create the constraint handler, the transformation method
     constraints('Transformation')
@@ -30,7 +32,8 @@ def gravedad():
 
 # Create the convergence test, the norm of the residual with a tolerance of
 # 1e-12 and a max number of iterations of 10
-    test('NormDispIncr', 1.0e-12, 10, 3)
+    # test('NormDispIncr', 1.0e-12, 10, 3)
+    test('NormUnbalance ', Tol, 10, 2)
 
 # Create the solution algorithm, a Newton-Raphson algorithm
     algorithm('Newton')
@@ -64,7 +67,7 @@ def pushover(Dmax,Dincr,IDctrlNode,IDctrlDOF):
     wipeAnalysis()
     constraints('Transformation')
     numberer('Plain')
-    system('BandGeneral')
+    system('UmfPack')
     test('EnergyIncr', Tol, maxNumIter)
     algorithm('Newton')
     
@@ -137,12 +140,12 @@ def pushover2(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     # system('SparseSYM')
     # system('BandSPD')
     # system('ProfileSPD')
     test('NormUnbalance', Tol, maxNumIter)
-    algorithm('Newton')    
+    algorithm('BFGS')    
     integrator('DisplacementControl', IDctrlNode, IDctrlDOF, Dincr)
     analysis('Static')
     
@@ -170,12 +173,12 @@ def pushover2(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
                     algorithm(algoritmo[j])
                 
                 # el test se hace 50 veces más
-                test('EnergyIncr', Tol, maxNumIter*50)
+                test('NormUnbalance', Tol, maxNumIter*50)
                 ok = analyze(1)
                 if ok == 0:
                     # si converge vuelve a las opciones iniciales de análisi
-                    test('EnergyIncr', Tol, maxNumIter)
-                    algorithm('Newton')
+                    test('NormUnbalance', Tol, maxNumIter)
+                    algorithm('BFGS')
                     break
                     
         if ok != 0:
@@ -183,9 +186,10 @@ def pushover2(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
             print('Desplazamiento alcanzado: ',nodeDisp(IDctrlNode,IDctrlDOF),'m')
             break
     
-        
+        print('step:',k+1,'/',Nsteps)
         dtecho.append(nodeDisp(IDctrlNode,IDctrlDOF))
         Vbasal.append(getTime())
+        print()
         
     plt.figure()
     plt.plot(dtecho,Vbasal)
@@ -249,7 +253,7 @@ def pushover2BD(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('NormUnbalance', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('DisplacementControl', IDctrlNode, IDctrlDOF, Dincr)
@@ -336,7 +340,7 @@ def pushover2MP(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('EnergyIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('DisplacementControl', IDctrlNode, IDctrlDOF, Dincr)
@@ -436,7 +440,7 @@ def pushover2T(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('EnergyIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('DisplacementControl', IDctrlNode, IDctrlDOF, Dincr)
@@ -525,7 +529,7 @@ def pushover3T(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('EnergyIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('DisplacementControl', IDctrlNode, IDctrlDOF, Dincr)
@@ -662,7 +666,7 @@ def pushover3Tn(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('EnergyIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('DisplacementControl', IDctrlNode, IDctrlDOF, Dincr)
@@ -813,6 +817,9 @@ def pushover3Tn(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
 
 # dinamico es el más sencillo de todos, corre un terremoto creando un recorder para el techo.
 # dinamicoBD corre una pareja de sismos aplicadas al modelo en tres dimensiones.
+# dinamicoBD2 corre una pareja de sismos aplicadas al modelo en tres dimensiones.
+# dinamicoBD3 corre una pareja de sismos aplicadas al modelo en tres dimensiones y acepta tanto muros como porticos grabando derivas, aceleraciones, fuerzas.
+# dinamicoBD4 identico a BD3 pero adicional graba rotaciones
 # dinamicoIDA crea el recorder en función del factor escalar.
 # dinamicoAnim es dinamico pero guarda la información para animar el registro
 # dinamicoIDA2 está modificado para ser utilizado cuando se desee correr en paralelo los cálculos. Devuelve solo el desplazamiento de techo
@@ -864,7 +871,7 @@ def dinamico(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes = [
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('NormDispIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -1010,7 +1017,7 @@ def dinamicoBD(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes =
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('NormDispIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -1179,7 +1186,7 @@ def dinamicoBD2(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nodes_
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('NormDispIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -1371,7 +1378,7 @@ def dinamicoBD3(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nodes_
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('NormDispIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -1456,6 +1463,209 @@ def dinamicoBD3(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nodes_
     tiempo = np.array(t)
     
     return tiempo,techo1,techo2,techoT,node_disp,node_vel,node_acel,node_disp2,node_acel2,Eds,driftX,driftY
+
+def dinamicoBD3DB(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nodes_control,elements,modes = [0,2],Kswitch = 1,Tol=1e-3,eletype='wall',odb = 1, odbtag = 1000):
+    '''
+    Performs a dynamic analysis applying both components of a ground motion and recording the displacement of a user selected node. To be used ONLY with quadrilateral elements with 24DOF if wall element and 12DOF if frame element.
+    Creates a DB file
+    
+    Parameters
+    ----------
+    recordName : list
+        list with the names of the record pair including file extension (i.e., 'GM01.txt'). It must have one record instant per line and each record. the records must be pairs, so the function expects that they are of the same length. 
+    dtrec : float
+        time increment of the record.
+    nPts : integer
+        number of points of the record.
+    dtan : float
+        time increment to be used in the analysis. If smaller than dtrec, OpenSeesPy interpolates.
+    fact : float
+        scale factor to apply to the record.
+    damp : float
+        Damping percentage in decimal (i.e., use 0.03 for 3%).
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF to apply the record. The 
+    nodes_control : list
+        nodes to compute displacements and inter-story drift. You must input one per floor, otherwise you'll get an error..
+    elements : list
+        list of elements to record forces.
+    modes : list, optional
+        Modes of the structure to apply the Rayleigh damping. The default is [0,2] which uses the first and third mode.
+    Kswitch : int, optional
+        Use it to define which stiffness matrix should be used for the ramping. The default is 1 that uses initial stiffness. Input 2 for current stifness.
+    Tol : float, optional
+        Tolerance for the analysis. The default is 1e-4 because it uses the NormUnbalance test.
+    eletype : string, optional
+        Input "wall" for wall elements based on 24DOF or "frame" for 12DOF frame elements
+
+
+    Returns
+    -------
+    tiempo : numpy array
+        Numpy array with analysis time.
+    techo : numpy array
+        Numpy array with displacement of the control node in the IDctrlDOF direction
+    techo2 : numpy array
+        Numpy array with the roof displacement recorded during the analysis in the IDctrlDOF perpendicular direction
+    techoT : numpy array
+        Numpy array with the resultant roof displacement recorded during the analysis
+    node_disp:
+        Numpy array with displacement of the control nodes in the IDctrlDOF direction
+    node_vel:
+        Numpy array with velocoties of the control nodes in the IDctrlDOF direction
+    node_acel:
+        Numpy array with relative accelerations of the control nodes in the IDctrlDOF direction
+    node_disp2:
+        Numpy array with displacement of the control nodes in the IDctrlDOF perpendicular direction
+    node_acel2:
+        Numpy array with relative accelerations of the control nodes in the IDctrlDOF perpendicular direction
+    Eds:
+        Element forces recorded for the element with tags defined in the input variable elements.
+    '''
+    
+    # Realiza un análisis dinámico aplicando dos componentes ortogonales del terremoto
+    # Graba información de elementos y nodos
+    
+    # record es el nombre de los registros en una lista, incluyendo extensión. P.ej. GM01.txt
+    # dtrec es el dt del registro. Debe ser el mismo para ambos
+    # nPts es el número de puntos del análisis. Debe ser el mismo para ambos
+    # dtan es el dt del análisis
+    # fact es el factor escalar del registro. Debe ser el mismo para ambos
+    # damp es el porcentaje de amortiguamiento (EN DECIMAL. p.ej: 0.03 para 3%)
+    # Kswitch recibe: 1: matriz inicial, 2: matriz actual
+    # IDctrlNode,IDctrlDOF son respectivamente el nodo y desplazamiento de control deseados
+    # nodes_control son los nodos de los diafragmas de piso
+    # elements son los elementos de los que va a guardar la información
+    
+    # creación del recorder de techo y definición de la tolerancia
+    # recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
+    import opstool as opst
+    maxNumIter = 25
+    
+    if IDctrlDOF == 1:
+        dir2 = 2
+    else:
+        dir2 = 1
+        
+    # creación del pattern
+    timeSeries('Path',1000,'-filePath',recordName[0],'-dt',dtrec,'-factor',fact)
+    pattern('UniformExcitation',  1000,   IDctrlDOF,  '-accel', 1000)
+    timeSeries('Path',1001,'-filePath',recordName[1],'-dt',dtrec,'-factor',fact)
+    pattern('UniformExcitation',  1001,   dir2,  '-accel', 1001)
+    
+    # damping
+    nmodes = max(modes)+1
+    eigval = eigen(nmodes)
+    
+    eig1 = eigval[modes[0]]
+    eig2 = eigval[modes[1]]
+    
+    w1 = eig1**0.5
+    w2 = eig2**0.5
+    
+    beta = 2.0*damp/(w1 + w2)
+    alfa = 2.0*damp*w1*w2/(w1 + w2)
+    
+    if Kswitch == 1:
+        rayleigh(alfa, 0.0, beta, 0.0)
+    else:
+        rayleigh(alfa, beta, 0.0, 0.0)
+    
+    # configuración básica del análisis
+    wipeAnalysis()
+    constraints('Transformation')
+    numberer('RCM')
+    system('UmfPack')
+    test('NormDispIncr', Tol, maxNumIter)
+    algorithm('Newton')    
+    integrator('Newmark', 0.5, 0.25)
+    analysis('Transient')
+    
+    # Otras opciones de análisis    
+    tests = {1:'NormDispIncr', 2: 'RelativeEnergyIncr', 4: 'RelativeNormUnbalance',5: 'RelativeNormDispIncr', 6: 'NormUnbalance'}
+    algoritmo = {1:'KrylovNewton', 2: 'SecantNewton' , 4: 'RaphsonNewton',5: 'PeriodicNewton', 6: 'BFGS', 7: 'Broyden', 8: 'NewtonLineSearch'}
+
+    # rutina del análisis
+    
+    Nsteps =  int(dtrec*nPts/dtan)
+    
+    dtecho1 = [nodeDisp(IDctrlNode,IDctrlDOF)]
+    dtecho2 = [nodeDisp(IDctrlNode,dir2)]
+
+    t = [getTime()]
+    nels = len(elements)
+    nnodos = len(nodes_control)
+    if eletype == 'wall':
+        ndofe = 24
+    elif eletype == 'frame':
+        ndofe = 12
+    Eds = np.zeros((nels, Nsteps+1, ndofe))
+    node_disp = np.zeros((Nsteps + 1, nnodos)) # para grabar los desplazamientos de los nodos
+    node_vel = np.zeros((Nsteps + 1, nnodos)) # para grabar los desplazamientos de los nodos
+    node_acel = np.zeros((Nsteps + 1, nnodos)) # para grabar los desplazamientos de los nodos
+    node_disp2 = np.zeros((Nsteps + 1, nnodos))
+    node_acel2 = np.zeros((Nsteps + 1, nnodos))
+    driftX = np.zeros((Nsteps + 1, nnodos - 1)) # para grabar la deriva de entrepiso
+    driftY = np.zeros((Nsteps + 1, nnodos - 1)) # para grabar la deriva de entrepiso
+    if odb == 1:
+        ODB = opst.post.CreateODB(odb_tag=odbtag)
+        
+    for k in range(Nsteps):
+        ok = analyze(1,dtan)
+        # ok2 = ok;
+        # En caso de no converger en un paso entra al condicional que sigue
+        if ok != 0:
+            print('configuración por defecto no converge en desplazamiento: ',nodeDisp(IDctrlNode,IDctrlDOF))
+            for j in algoritmo:
+                if j < 4:
+                    algorithm(algoritmo[j], '-initial')
+    
+                else:
+                    algorithm(algoritmo[j])
+                
+                # el test se hace 50 veces más
+                test('NormDispIncr', Tol, maxNumIter*50)
+                ok = analyze(1,dtan)
+                if ok == 0:
+                    # si converge vuelve a las opciones iniciales de análisi
+                    test('NormDispIncr', Tol, maxNumIter)
+                    algorithm('Newton')
+                    break
+                    
+        if ok != 0:
+            print('Análisis dinámico fallido')
+            print('Desplazamiento alcanzado: ',nodeDisp(IDctrlNode,IDctrlDOF),'m')
+            break
+        ODB.fetch_response_step()  
+        
+        dtecho1.append(nodeDisp(IDctrlNode,IDctrlDOF))
+        dtecho2.append(nodeDisp(IDctrlNode,dir2))
+        t.append(getTime())
+        
+        for node_i, node_tag in enumerate(nodes_control):           
+            node_disp[k+1,node_i] = nodeDisp(node_tag,IDctrlDOF)
+            node_disp2[k+1,node_i] = nodeDisp(node_tag,dir2)
+            node_vel[k+1,node_i] = nodeVel(node_tag,IDctrlDOF)
+            node_acel[k+1,node_i] = nodeAccel(node_tag,IDctrlDOF)
+            node_acel2[k+1,node_i] = nodeAccel(node_tag,dir2)
+            if node_i != 0:
+                driftX[k+1,node_i-1] = (nodeDisp(node_tag,1) - nodeDisp(nodes_control[node_i-1],1))/(nodeCoord(node_tag,3) - nodeCoord(nodes_control[node_i-1],3))
+                driftY[k+1,node_i-1] = (nodeDisp(node_tag,2) - nodeDisp(nodes_control[node_i-1],2))/(nodeCoord(node_tag,3) - nodeCoord(nodes_control[node_i-1],3))
+            
+        for el_i, ele_tag in enumerate(elements):
+            Eds[el_i , k+1, :] = eleResponse(ele_tag,'globalForce')
+        
+    
+    techo1 = np.array(dtecho1)
+    techo2 = np.array(dtecho2)
+    techoT = np.sqrt(techo1**2+techo2**2)
+    tiempo = np.array(t)
+    if odb == 1:
+        ODB.save_response()
+    wipe()
+    return tiempo,techo1,techo2,techoT,node_disp,node_vel,node_acel,node_disp2,node_acel2,Eds,driftX,driftY
      
 def dinamicoIDA(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes = [0,2],Kswitch = 1,Tol=1e-4):
     
@@ -1500,7 +1710,7 @@ def dinamicoIDA(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes 
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('NormDispIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -1598,7 +1808,7 @@ def dinamicoAnim(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('EnergyIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -1744,7 +1954,7 @@ def dinamicoIDA2(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('NormUnbalance', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -1761,6 +1971,7 @@ def dinamicoIDA2(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes
     t = [getTime()]
     
     for k in range(Nsteps):
+        print('step:',k+1,'/',Nsteps)
         ok = analyze(1,dtan)
         # ok2 = ok;
         # En caso de no converger en un paso entra al condicional que sigue
@@ -1787,7 +1998,7 @@ def dinamicoIDA2(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes
             print('Desplazamiento alcanzado: ',nodeDisp(IDctrlNode,IDctrlDOF),'m')
             break
     
-        
+        print('step:',k+1,'/',Nsteps)
         dtecho.append(nodeDisp(IDctrlNode,IDctrlDOF))
         t.append(getTime())
         
@@ -1847,7 +2058,7 @@ def dinamicoIDA3(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,eleme
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('EnergyIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -2007,7 +2218,7 @@ def dinamicoIDA4(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,eleme
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('EnergyIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -2218,7 +2429,7 @@ def dinamicoIDA4P(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,elem
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('NormUnbalance', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -2342,7 +2553,7 @@ def dinamicoIDA4G(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,node
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('NormDispIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -2459,7 +2670,7 @@ def dinamicoIDA5(acceleration,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,ele
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('EnergyIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -2622,7 +2833,7 @@ def dinamicoIDA6(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,eleme
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('EnergyIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -2783,7 +2994,7 @@ def dinamicoIDA2DB(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,mod
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('NormUnbalance', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -2881,7 +3092,7 @@ def pushover2DB(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-4,odb = 1, od
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     # system('SparseSYM')
     # system('BandSPD')
     # system('ProfileSPD')
@@ -3011,8 +3222,8 @@ def dinamicoBDSDOF(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nod
         Numpy array with displacement of the control nodes in the IDctrlDOF perpendicular direction
     node_acel2:
         Numpy array with relative accelerations of the control nodes in the IDctrlDOF perpendicular direction
-    Eds:
-        Element forces recorded for the element with tags defined in the input variable elements.
+    abs_accel_srss:
+        SRSS computed from the the absolute accelerations
     '''
     
     # Realiza un análisis dinámico aplicando dos componentes ortogonales del terremoto
@@ -3065,7 +3276,7 @@ def dinamicoBDSDOF(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nod
     wipeAnalysis()
     constraints('Transformation')
     numberer('RCM')
-    system('BandGeneral')
+    system('UmfPack')
     test('NormDispIncr', Tol, maxNumIter)
     algorithm('Newton')    
     integrator('Newmark', 0.5, 0.25)
@@ -3140,7 +3351,222 @@ def dinamicoBDSDOF(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nod
     ax = np.insert(ax,0,0)
     ay = np.insert(ay,0,0)
     abx = node_acel[:,0] + ax
-    aby = node_acel[:,0] + ay
+    aby = node_acel2[:,0] + ay
     
     abs_acel_srss = np.sqrt(abx**2 + aby**2)
     return tiempo,techo1,techo2,techoT,node_disp,node_vel,node_acel,node_disp2,node_acel2,abs_acel_srss
+
+def dinamicoBD4(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nodes_control,elements,modes = [0,2],Kswitch = 1,Tol=1e-4,eletype='wall'):
+    '''
+    Performs a dynamic analysis applying both components of a ground motion and recording the displacement of a user selected node. To be used ONLY with quadrilateral elements with 24DOF if wall element and 12DOF if frame element.
+    
+    Parameters
+    ----------
+    recordName : list
+        list with the names of the record pair including file extension (i.e., 'GM01.txt'). It must have one record instant per line and each record. the records must be pairs, so the function expects that they are of the same length. 
+    dtrec : float
+        time increment of the record.
+    nPts : integer
+        number of points of the record.
+    dtan : float
+        time increment to be used in the analysis. If smaller than dtrec, OpenSeesPy interpolates.
+    fact : float
+        scale factor to apply to the record.
+    damp : float
+        Damping percentage in decimal (i.e., use 0.03 for 3%).
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF to apply the record. The 
+    nodes_control : list
+        nodes to compute displacements and inter-story drift. You must input one per floor, otherwise you'll get an error..
+    elements : list
+        list of elements to record forces.
+    modes : list, optional
+        Modes of the structure to apply the Rayleigh damping. The default is [0,2] which uses the first and third mode.
+    Kswitch : int, optional
+        Use it to define which stiffness matrix should be used for the ramping. The default is 1 that uses initial stiffness. Input 2 for current stifness.
+    Tol : float, optional
+        Tolerance for the analysis. The default is 1e-4 because it uses the NormUnbalance test.
+    eletype : string, optional
+        Input "wall" for wall elements based on 24DOF or "frame" for 12DOF frame elements
+
+
+    Returns
+    -------
+    tiempo : numpy array
+        Numpy array with analysis time.
+    techo : numpy array
+        Numpy array with displacement of the control node in the IDctrlDOF direction
+    techo2 : numpy array
+        Numpy array with the roof displacement recorded during the analysis in the IDctrlDOF perpendicular direction
+    techoT : numpy array
+        Numpy array with the resultant roof displacement recorded during the analysis
+    node_disp:
+        Numpy array with displacement of the control nodes in the IDctrlDOF direction
+    node_vel:
+        Numpy array with velocoties of the control nodes in the IDctrlDOF direction
+    node_acel:
+        Numpy array with relative accelerations of the control nodes in the IDctrlDOF direction
+    node_disp2:
+        Numpy array with displacement of the control nodes in the IDctrlDOF perpendicular direction
+    node_acel2:
+        Numpy array with relative accelerations of the control nodes in the IDctrlDOF perpendicular direction
+    Eds:
+        Element forces recorded for the element with tags defined in the input variable elements.
+    Prot : numpy array
+        Numpy array with the plastic deformations of the frame elements during the dynamic analysis.
+        It has dimensions (number of elements, number of steps, 6), where each row stores the plastic
+        deformation components extracted using 'plasticDeformation' from each frame element.
+        For 3D frame elements, six plastic deformations are recorded: axial deformation, 
+        z-rotation at end I, z-rotation at end J, y-rotation at end I, y-rotation at end J, and torsion.
+        Only returned if eletype='frame'.
+    '''
+    
+    # Realiza un análisis dinámico aplicando dos componentes ortogonales del terremoto
+    # Graba información de elementos y nodos
+    
+    # record es el nombre de los registros en una lista, incluyendo extensión. P.ej. GM01.txt
+    # dtrec es el dt del registro. Debe ser el mismo para ambos
+    # nPts es el número de puntos del análisis. Debe ser el mismo para ambos
+    # dtan es el dt del análisis
+    # fact es el factor escalar del registro. Debe ser el mismo para ambos
+    # damp es el porcentaje de amortiguamiento (EN DECIMAL. p.ej: 0.03 para 3%)
+    # Kswitch recibe: 1: matriz inicial, 2: matriz actual
+    # IDctrlNode,IDctrlDOF son respectivamente el nodo y desplazamiento de control deseados
+    # nodes_control son los nodos de los diafragmas de piso
+    # elements son los elementos de los que va a guardar la información
+    
+    # creación del recorder de techo y definición de la tolerancia
+    # recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
+    maxNumIter = 25
+    
+    if IDctrlDOF == 1:
+        dir2 = 2
+    else:
+        dir2 = 1
+        
+    # creación del pattern
+    timeSeries('Path',1000,'-filePath',recordName[0],'-dt',dtrec,'-factor',fact)
+    pattern('UniformExcitation',  1000,   IDctrlDOF,  '-accel', 1000)
+    timeSeries('Path',1001,'-filePath',recordName[1],'-dt',dtrec,'-factor',fact)
+    pattern('UniformExcitation',  1001,   dir2,  '-accel', 1001)
+    
+    # damping
+    nmodes = max(modes)+1
+    eigval = eigen(nmodes)
+    
+    eig1 = eigval[modes[0]]
+    eig2 = eigval[modes[1]]
+    
+    w1 = eig1**0.5
+    w2 = eig2**0.5
+    
+    beta = 2.0*damp/(w1 + w2)
+    alfa = 2.0*damp*w1*w2/(w1 + w2)
+    
+    if Kswitch == 1:
+        rayleigh(alfa, 0.0, beta, 0.0)
+    else:
+        rayleigh(alfa, beta, 0.0, 0.0)
+    
+    # configuración básica del análisis
+    wipeAnalysis()
+    constraints('Transformation')
+    numberer('RCM')
+    system('BandGeneral')
+    test('NormDispIncr', Tol, maxNumIter)
+    algorithm('Newton')    
+    integrator('Newmark', 0.5, 0.25)
+    analysis('Transient')
+    
+    # Otras opciones de análisis    
+    tests = {1:'NormDispIncr', 2: 'RelativeEnergyIncr', 4: 'RelativeNormUnbalance',5: 'RelativeNormDispIncr', 6: 'NormUnbalance'}
+    algoritmo = {1:'KrylovNewton', 2: 'SecantNewton' , 4: 'RaphsonNewton',5: 'PeriodicNewton', 6: 'BFGS', 7: 'Broyden', 8: 'NewtonLineSearch'}
+
+    # rutina del análisis
+    
+    Nsteps =  int(dtrec*nPts/dtan)
+    
+    dtecho1 = [nodeDisp(IDctrlNode,IDctrlDOF)]
+    dtecho2 = [nodeDisp(IDctrlNode,dir2)]
+
+    t = [getTime()]
+    nels = len(elements)
+    nnodos = len(nodes_control)
+    if eletype == 'wall':
+        ndofe = 24
+    elif eletype == 'frame':
+        ndofe = 12
+    Eds = np.zeros((nels, Nsteps+1, ndofe))
+    node_disp = np.zeros((Nsteps + 1, nnodos)) # para grabar los desplazamientos de los nodos
+    node_vel = np.zeros((Nsteps + 1, nnodos)) # para grabar los desplazamientos de los nodos
+    node_acel = np.zeros((Nsteps + 1, nnodos)) # para grabar los desplazamientos de los nodos
+    node_disp2 = np.zeros((Nsteps + 1, nnodos))
+    node_acel2 = np.zeros((Nsteps + 1, nnodos))
+    driftX = np.zeros((Nsteps + 1, nnodos - 1)) # para grabar la deriva de entrepiso
+    driftY = np.zeros((Nsteps + 1, nnodos - 1)) # para grabar la deriva de entrepiso
+    Prot = np.zeros((nels, Nsteps+1, 6)) # para grabar las rotaciones de los elementos  For 3D frame elements, there are six plastic deformations recorded: axial, z-rotation at I, z-rotation at J, y-rotation at I, y-rotation at J, and torsion.
+    for k in range(Nsteps):
+        ok = analyze(1,dtan)
+        # ok2 = ok;
+        # En caso de no converger en un paso entra al condicional que sigue
+        if ok != 0:
+            print('configuración por defecto no converge en desplazamiento: ',nodeDisp(IDctrlNode,IDctrlDOF))
+            for j in algoritmo:
+                if j < 4:
+                    algorithm(algoritmo[j], '-initial')
+    
+                else:
+                    algorithm(algoritmo[j])
+                
+                # el test se hace 50 veces más
+                test('NormDispIncr', Tol, maxNumIter*50)
+                ok = analyze(1,dtan)
+                if ok == 0:
+                    # si converge vuelve a las opciones iniciales de análisi
+                    test('NormDispIncr', Tol, maxNumIter)
+                    algorithm('Newton')
+                    break
+                    
+        if ok != 0:
+            print('Análisis dinámico fallido')
+            print('Desplazamiento alcanzado: ',nodeDisp(IDctrlNode,IDctrlDOF),'m')
+            break
+    
+        
+        dtecho1.append(nodeDisp(IDctrlNode,IDctrlDOF))
+        dtecho2.append(nodeDisp(IDctrlNode,dir2))
+        t.append(getTime())
+        
+        for node_i, node_tag in enumerate(nodes_control):           
+            node_disp[k+1,node_i] = nodeDisp(node_tag,IDctrlDOF)
+            node_disp2[k+1,node_i] = nodeDisp(node_tag,dir2)
+            node_vel[k+1,node_i] = nodeVel(node_tag,IDctrlDOF)
+            node_acel[k+1,node_i] = nodeAccel(node_tag,IDctrlDOF)
+            node_acel2[k+1,node_i] = nodeAccel(node_tag,dir2)
+            if node_i != 0:
+                driftX[k+1,node_i-1] = (nodeDisp(node_tag,1) - nodeDisp(nodes_control[node_i-1],1))/(nodeCoord(node_tag,3) - nodeCoord(nodes_control[node_i-1],3))
+                driftY[k+1,node_i-1] = (nodeDisp(node_tag,2) - nodeDisp(nodes_control[node_i-1],2))/(nodeCoord(node_tag,3) - nodeCoord(nodes_control[node_i-1],3))
+            
+        for el_i, ele_tag in enumerate(elements):
+            Eds[el_i , k+1, :] = eleResponse(ele_tag,'globalForce')
+            
+            if eletype == 'frame':  #Este condicional solo para sacar rotaciones si es porticos
+                try:
+                    plast_rot = eleResponse(ele_tag, 'plasticDeformation') #For 3D frame elements, there are six plastic deformations recorded: axial, z-rotation at I, z-rotation at J, y-rotation at I, y-rotation at J, and torsion.
+                    Prot[el_i, k+1, :] = plast_rot
+                except:
+                    print(f"No se pudo obtener 'plasticDeformation' del elemento {ele_tag} en paso {k}")
+        
+    
+    techo1 = np.array(dtecho1)
+    techo2 = np.array(dtecho2)
+    techoT = np.sqrt(techo1**2+techo2**2)
+    tiempo = np.array(t)
+    
+    if eletype == 'frame':  #Este condicional solo para sacar rotaciones si es porticos
+        return tiempo, techo1, techo2, techoT, node_disp, node_vel, node_acel, node_disp2, node_acel2, Eds, driftX, driftY, Prot
+    else:
+        return tiempo, techo1, techo2, techoT, node_disp, node_vel, node_acel, node_disp2, node_acel2, Eds, driftX, driftY
+     

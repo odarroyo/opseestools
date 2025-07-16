@@ -77,7 +77,7 @@ def fn_mle_pc(IM, num_gmrs, num_collapse):
     beta = x['x'][1]
     return theta, beta
 
-def plotfrag(theta,beta,x = np.linspace(0,6,100)):
+def plotfrag(theta,beta,x = np.linspace(0,4,100)):
     y = stats.lognorm.cdf(x,s=beta,scale=theta)
     plt.plot(x,y)
     
@@ -154,3 +154,38 @@ def calculate_fragility(df,limit_name,limits,IM_column,EDP_column,plot=True):
         plt.show()
     
     return thetas,betas
+
+def calculate_vulnerability(thetas,betas,ratios=[0.05,0.3,0.65,1.0],x = np.linspace(0,4,100)):
+    '''
+    Calculates the vulnerability function based on thetas and betas
+
+    Parameters
+    ----------
+    thetas : list of float
+        Theta of the fragility function.
+    betas : list float
+        beta of the fragility function.
+    ratios : list of floats, optional
+        ratios of the damage states costs. The default is [0.05,0.3,0.65,1.0].
+    x : list of floats, optional
+        range for plotting
+    Returns
+    -------
+    x: float.
+        range for ploting
+    vul: float
+        vulnerability values
+
+    '''
+    dstates = len(thetas)
+    vul = np.zeros(len(x))
+    y = [stats.lognorm.cdf(x,s=betas[i],scale=thetas[i]) for i in range(len(thetas))]
+    for i in range(dstates):
+        if i != dstates-1:
+            vul += (y[i]-y[i+1])*ratios[i]
+        else:
+            vul += (y[i])*ratios[i]
+    return x,vul
+
+    
+    

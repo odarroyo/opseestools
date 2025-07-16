@@ -166,8 +166,8 @@ def testMaterial(matTag,displ):
     algorithm('Newton')
     
     currentDisp = 0.0
-    Disp = [0]
-    F = [0]
+    Disp = []
+    F = []
     nSteps = 1000
     
     for i in displ:
@@ -203,7 +203,7 @@ def testMaterial(matTag,displ):
     plt.ylabel('esfuerzo (kPa)')
     return Disp,F
     
-def BuildRCSection(ID,HSec,BSec,coverH,coverB,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot,barAreaInt,nfCoreY,nfCoreZ,nfCoverY,nfCoverZ):
+def BuildRCSection(ID,HSec,BSec,coverH,coverB,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot,barAreaInt,nfCoreY,nfCoreZ,nfCoverY,nfCoverZ,GJ=1e6):
     '''
     Define a procedure which generates a rectangular reinforced concrete section with one layer of steel at the top & bottom, skin reinforcement and a confined core.
 	Original TCL version by: Silvia Mazzoni, 2006, adapted from Michael H. Scott, 2003
@@ -285,7 +285,7 @@ def BuildRCSection(ID,HSec,BSec,coverH,coverB,coreID,coverID,steelID,numBarsTop,
     coreY = coverY - coverH
     coreZ = coverZ - coverB
     numBarsInt = int(numBarsIntTot/2)
-    GJ = 1e6
+    
     nespacios = numBarsInt + 1
     a = HSec - 2*coverH
     b = a/nespacios
@@ -301,6 +301,12 @@ def BuildRCSection(ID,HSec,BSec,coverH,coverB,coreID,coverID,steelID,numBarsTop,
     layer('straight',steelID,numBarsTop,barAreaTop,coreY,coreZ,coreY,-coreZ)
     layer('straight',steelID,numBarsBot,barAreaBot,-coreY,coreZ,-coreY,-coreZ)
     
+def BuildRCCircSection(ID,radius,cover,nbars,abar,coreID,coverID,steelID,GJ=1e6):
+    radio_int = radius-cover
+    section('Fiber',ID,'-GJ',GJ)
+    patch('circ', coverID, 16, 1, *[0,0],*[radio_int,radius],*[0,360])
+    patch('circ', coreID, 16, 10, *[0,0],*[0,radio_int],*[0,360])
+    layer('circ', steelID, nbars, abar, *[0,0],radio_int)
     
         
 
@@ -1058,7 +1064,7 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
     Parameters
     ----------
     zone : String, optional
-        Detailing level. By default it is special detailing. User can input 'DMO' for an intermediate detailing of Colombian design code.
+        Detailing level. By default it is special detailing. User can input 'DMO' for an intermediate detailing of Colombian design code or PreCode for pre-code detailing.
     fy : Float, optional
         Steel yielding stress in MPa. The default is 420.
     fcn : Float, optional
@@ -1127,7 +1133,33 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
             uniaxialMaterial('Concrete02', conftag, fcc, ecc, fucc, eucc)
         else:
             uniaxialMaterial('Concrete01', conftag, fcc, ecc, fucc, eucc) 
+    
+    elif detailing == 'PreCode':
+        D = 12
+        #L = 8*D
+        L = 20*D
+        s_steel1, e_steel1 = dhakal(fy_1, fu_1, ey_1, eh, eu, L, D)
+        s1p1, s2p1, s3p1, s4p1, e1p1, e2p1, e3p1, e4p1 = s_steel1[0], s_steel1[1], s_steel1[2], s_steel1[3],e_steel1[0], e_steel1[1], e_steel1[2], e_steel1[3]
+        s1n1, s2n1, s3n1, s4n1, e1n1, e2n1, e3n1, e4n1 = s_steel1[4], s_steel1[5], s_steel1[6], s_steel1[7],e_steel1[4], e_steel1[5], e_steel1[6], e_steel1[7]
+        if nps == 4:
+            uniaxialMaterial('HystereticSM',steeltag,'-posEnv',s1p1,e1p1,s2p1,e2p1,s3p1,e3p1,s4p1,e4p1,'-negEnv',s1n1,e1n1,s2n1,e2n1,s3n1,e3n1,s4n1,e4n1)
+        else:
+            uniaxialMaterial('Hysteretic',steeltag,s1p1,e1p1,s3p1,e3p1,s4p1,e4p1,s1n1,e1n1,s2n1,e2n1,s4n1,e4n1,1.0,1.0,0.0,0.0)
+
+        # Para el concreto confinado
         
+        k=1.01
+        fcc=fc*k
+        Ec = 4400*np.sqrt(fcc/1000)*1000
+        ecc= 2*fcc/Ec
+        fucc=0.2*fcc
+        e20_cc = e20Lobatto2(2*fcn*k, 3000, 5, fcn*k, Ec/1000, ecc)
+        eucc=e20_cc
+        if tension == 'tension':
+            uniaxialMaterial('Concrete02', conftag, fcc, ecc, fucc, eucc)
+        else:
+            uniaxialMaterial('Concrete01', conftag, fcc, ecc, fucc, eucc) 
+       
     elif detailing =='DES':
         D = 12
         L = 6*D
@@ -1185,13 +1217,24 @@ def create_elements(coordx,coordy,coltag,beamtag,dia = 1):
     nx = len(coordx)
     ny = len(coordy)
     TagColumns = []
+    
+    # Check type of coltag and create coltag2
+    if isinstance(coltag, int):
+        coltag2 = [coltag] * (ny - 1)
+    else:
+        coltag2 = coltag
+    
+    # Check if coltag2 has enough elements
+    if len(coltag2) < (ny - 1):
+        raise ValueError(f"coltag must have at least {ny - 1} elements for {ny - 1} column levels, but got {len(coltag2)} elements")
+    
     for i in range(ny-1):
         for j in range(nx):
             nodeI = 1000*(j+1)+i
             nodeJ = 1000*(j+1)+(i+1)
             eltag = 100*(j+1) + i
             TagColumns.append(eltag)
-            element('forceBeamColumn',eltag,nodeI,nodeJ,pdelta,coltag)
+            element('forceBeamColumn',eltag,nodeI,nodeJ,pdelta,coltag2[i])
     TagVigas = []
     for i in range(1,ny):
         for j in range(nx-1):
@@ -1206,8 +1249,7 @@ def create_elements(coordx,coordy,coltag,beamtag,dia = 1):
                 masternode = 1000 + j
                 slavenode = 1000*(i+1) + j
                 equalDOF(masternode,slavenode,1)
-                
-    
+                    
     return TagColumns, TagVigas
 
 
@@ -1276,7 +1318,7 @@ def create_elements3D(coordx,coordy,coordz,coltag,beamtagX,beamtagY,dia = 1):
             for j in range(ny): 
                 nodeI = 10000*(i+1)+100*j+z
                 nodeJ = 10000*(i+2)+100*j+z
-                eltag = 1000000*z + 10000*(j+1) + 100*i
+                eltag = -(1000000*z + 10000*(j+1) + 100*i)
                 TagVigasX.append(eltag)
                 element('forceBeamColumn',eltag,*[nodeI,nodeJ],vigXtrans,beamtagX)
                 # print(nodeI,nodeJ,':',eltag)
@@ -1430,9 +1472,13 @@ def pushover_loads3D(coordz, pushdir = 'x', tag_pattern = 1001, nodes = 0):
         for i in range(puntos):
             load(nodes[i],coordz[i+1]/suma,0,0,0,0,0)
 
-def create_rect_RC_section(ID,HSec,BSec,cover,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot=2,barAreaInt=1e-10):
+def create_rect_RC_section(ID,HSec,BSec,cover,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot=2,barAreaInt=1e-10,pint=5):
     BuildRCSection(ID,HSec,BSec,cover,cover,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot,barAreaInt,10,10,8,8)
-    beamIntegration('Lobatto',ID,ID,5)
+    beamIntegration('Lobatto',ID,ID,pint)
+
+def create_circ_RC_section(ID,radius,cover,nbars,abar,coreID,coverID,steelID,pint=5):
+    BuildRCCircSection(ID, radius, cover, nbars, abar, coreID, coverID, steelID)
+    beamIntegration('Lobatto',ID,ID,pint)
     
 def create_slabs(coordx, coordy, coordz, hslab, Eslab, pois, seclosa = 12345, dens = 0.0, starttag = 0):
     '''
@@ -1470,7 +1516,7 @@ def create_slabs(coordx, coordy, coordz, hslab, Eslab, pois, seclosa = 12345, de
     nz = len(coordz)
     slabtags = []
     for z in range(1,nz):
-        tag = 100*z + starttag
+        tag = -(1045*z + starttag)
         for i in range(nx - 1):
             for j in range(ny - 1):
                 n1 = 10000*(i+1) + 100*j + z
@@ -1561,7 +1607,7 @@ def create_slabs_NL(coordx, coordy, coordz, hslab, Eslab, pois, seclosa = 12345,
     nz = len(coordz)
     slabtags = []
     for z in range(1,nz):
-        tag = 100*z + starttag
+        tag = -(1045*z + starttag)
         for i in range(nx - 1):
             for j in range(ny - 1):
                 n1 = 10000*(i+1) + 100*j + z
