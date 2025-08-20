@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Mar 21 17:59:44 2022
 
-@author: Orlando
-"""
 from openseespy.opensees import *
 import matplotlib.pyplot as plt
 import numpy as np
@@ -3570,3 +3566,4 @@ def dinamicoBD4(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,nodes_
     else:
         return tiempo, techo1, techo2, techoT, node_disp, node_vel, node_acel, node_disp2, node_acel2, Eds, driftX, driftY
      
+
