@@ -27,6 +27,24 @@ import pandas as pd
 
 #-----objective function to be optimized
 def mlefit(theta, num_gmrs, num_collapse, IM):
+    """Return negative log-likelihood for fragility parameters.
+
+    Parameters
+    ----------
+    theta : array_like
+        Current estimates of the median (theta) and dispersion (beta).
+    num_gmrs : array_like
+        Number of ground motions at each intensity measure level.
+    num_collapse : array_like
+        Observed number of collapses at each intensity measure level.
+    IM : array_like
+        Intensity measure levels corresponding to the observations.
+
+    Returns
+    -------
+    float
+        Negative log-likelihood of the observations for the given parameters.
+    """
     if theta[0]<0:                                                               # don't let median of fragility function go below zero
         theta[0]=0
     #-----estimated probabilities of collapse, given the current fragility functionparameter estimates
@@ -42,6 +60,24 @@ def mlefit(theta, num_gmrs, num_collapse, IM):
     return loglik
 #---- example data: IM levels, number of analyses, and number of collapses
 def fn_mle_pc(IM, num_gmrs, num_collapse):
+    """Fit lognormal fragility parameters via maximum likelihood estimation.
+
+    Parameters
+    ----------
+    IM : array_like
+        Intensity measure levels of interest.
+    num_gmrs : array_like
+        Number of ground motions used at each intensity measure level.
+    num_collapse : array_like
+        Observed number of collapses at each intensity measure level.
+
+    Returns
+    -------
+    theta : float
+        Median of the fitted lognormal fragility function.
+    beta : float
+        Lognormal standard deviation of the fragility function.
+    """
     #-----by Jack Baker
     #-----10/9/2012
     #-----Modified by Gemma Cremen, 1/25/2017, to avoid estimating negative median
@@ -77,9 +113,20 @@ def fn_mle_pc(IM, num_gmrs, num_collapse):
     beta = x['x'][1]
     return theta, beta
 
-def plotfrag(theta,beta,x = np.linspace(0,4,100)):
-    y = stats.lognorm.cdf(x,s=beta,scale=theta)
-    plt.plot(x,y)
+def plotfrag(theta, beta, x=np.linspace(0, 4, 100)):
+    """Plot lognormal fragility curve for given parameters.
+
+    Parameters
+    ----------
+    theta : float
+        Median of the fragility function.
+    beta : float
+        Lognormal standard deviation.
+    x : array_like, optional
+        Intensity measure range over which to compute the curve.
+    """
+    y = stats.lognorm.cdf(x, s=beta, scale=theta)
+    plt.plot(x, y)
     
 def values_in_bins(data, bins='fd'):
     """

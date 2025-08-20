@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""Utility helper functions for OpenSees tools."""
 
 from openseespy.opensees import *
 import matplotlib.pyplot as plt
@@ -301,7 +302,8 @@ def BuildRCSection(ID,HSec,BSec,coverH,coverB,coreID,coverID,steelID,numBarsTop,
     layer('straight',steelID,numBarsTop,barAreaTop,coreY,coreZ,coreY,-coreZ)
     layer('straight',steelID,numBarsBot,barAreaBot,-coreY,coreZ,-coreY,-coreZ)
     
-def BuildRCCircSection(ID,radius,cover,nbars,abar,coreID,coverID,steelID,GJ=1e6):
+def BuildRCCircSection(ID, radius, cover, nbars, abar, coreID, coverID, steelID, GJ=1e6):
+    """Build a circular reinforced concrete fiber section."""
     radio_int = radius-cover
     section('Fiber',ID,'-GJ',GJ)
     patch('circ', coverID, 16, 1, *[0,0],*[radio_int,radius],*[0,360])
@@ -421,7 +423,8 @@ def kge(pred,obs):
     return kge
 
 
-def newmarkL(T,xi,GM,delta_t,betha = 1/4, gamma = 1/2 ,u0 = 0,v0 = 0,P0 = 0):
+def newmarkL(T, xi, GM, delta_t, betha=1/4, gamma=1/2, u0=0, v0=0, P0=0):
+    """Integrate SDOF response using the linear Newmark method."""
     #T: periodo de la estrutura
     #xi: porcentaje de amortiguamiento crítico
     #GM: registro en unidades consistentes
@@ -762,7 +765,7 @@ def BuildISection(secID,matID,d,tw,bf,tf,nfdw,nftw,nfbf,nftf):
     patch('quad',matID,nfbf,nftf,y3,z4,y3,z1,y4,z1,y4,z4)
 
 def plot_Wall_T_BE(matConf, matInco, bW, bF, BEU, BED, BEL, BER, Lww, LwF, nMax, nMin):
-    
+    """Plot wall cross section with boundary elements."""
     cover = 0.025
     SteelTag = 4
     
@@ -806,6 +809,7 @@ def plot_Wall_T_BE(matConf, matInco, bW, bF, BEU, BED, BEL, BER, Lww, LwF, nMax,
     plt.gca().invert_xaxis()
     
 def dackal(Fyy, Fuu, eyy, ehh, euu, Lb, Db):
+    """Compute Dhakal parameters using alternative formulation."""
     #Fy = esfuerzo de fluencia del acero [MPa]
     #Fu = esfuerzo último del acero [MPa]
     #ey, eh, eu = deformaciones unitarias del acero
@@ -845,6 +849,7 @@ def dackal(Fyy, Fuu, eyy, ehh, euu, Lb, Db):
     return s, e
 
 def dhakal(Fyy, Fuu, eyy, ehh, euu, Lb, Db):
+    """Compute Dhakal buckling model parameters for reinforcement steel."""
     #Fy = esfuerzo de fluencia del acero [MPa]
     #Fu = esfuerzo último del acero [MPa]
     #ey, eh, eu = deformaciones unitarias del acero
@@ -1472,11 +1477,13 @@ def pushover_loads3D(coordz, pushdir = 'x', tag_pattern = 1001, nodes = 0):
         for i in range(puntos):
             load(nodes[i],coordz[i+1]/suma,0,0,0,0,0)
 
-def create_rect_RC_section(ID,HSec,BSec,cover,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot=2,barAreaInt=1e-10,pint=5):
+def create_rect_RC_section(ID, HSec, BSec, cover, coreID, coverID, steelID, numBarsTop, barAreaTop, numBarsBot, barAreaBot, numBarsIntTot=2, barAreaInt=1e-10, pint=5):
+    """Create a rectangular reinforced concrete section and integration scheme."""
     BuildRCSection(ID,HSec,BSec,cover,cover,coreID,coverID,steelID,numBarsTop,barAreaTop,numBarsBot,barAreaBot,numBarsIntTot,barAreaInt,10,10,8,8)
     beamIntegration('Lobatto',ID,ID,pint)
 
-def create_circ_RC_section(ID,radius,cover,nbars,abar,coreID,coverID,steelID,pint=5):
+def create_circ_RC_section(ID, radius, cover, nbars, abar, coreID, coverID, steelID, pint=5):
+    """Create a circular reinforced concrete section and integration scheme."""
     BuildRCCircSection(ID, radius, cover, nbars, abar, coreID, coverID, steelID)
     beamIntegration('Lobatto',ID,ID,pint)
     
