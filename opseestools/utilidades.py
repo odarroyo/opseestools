@@ -883,15 +883,25 @@ def dhakal(Fyy, Fuu, eyy, ehh, euu, Lb, Db):
     
     return s, e
 
-def residual_disp(drifts,npts):
-    ''' Calcula el drift residual de una estructura sometida a un terremoto
-        Recibe dos entradas:
-            drifts contiene los drifts a lo largo del sismo
-            npts es el número de puntos hasta donde llega el registro
-        
-        Este algoritmo requiere que se haya corrido un periodo de vibración libre luego del final del registro
-        
-    '''
+def residual_disp(drifts, npts):
+    """Calculates the residual drift of a structure after an earthquake.
+
+    Parameters
+    ----------
+    drifts : array-like
+        Drift values recorded during the seismic event.
+    npts : int
+        Number of points corresponding to the ground-motion duration.
+
+    Returns
+    -------
+    float
+        Mean absolute residual drift computed from the free-vibration response.
+
+    Notes
+    -----
+    This algorithm assumes a free-vibration period after the end of the record.
+    """
     freevib = drifts[npts:-1] # extrae los valores de drifts a partir de donde comenzó la vibración libre
     peaks_ind = argrelextrema(freevib, np.greater) # calcula los indices de los puntos de los máximos
     peaks_ind = peaks_ind[0]
