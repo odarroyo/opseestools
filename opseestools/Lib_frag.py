@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Nov  1 15:34:48 2023
-
-@author: Dirsa
-"""
+"""Fragility curve fitting utilities."""
 #%%
 
 import numpy as np                                                              # Importa librería estándar para operaciones matematicas.

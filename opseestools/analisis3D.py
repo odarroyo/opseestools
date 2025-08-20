@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Mar 21 17:59:44 2022
-
-@author: Orlando
-"""
+"""3D structural analysis utilities."""
 from openseespy.opensees import *
 import matplotlib.pyplot as plt
 import numpy as np
