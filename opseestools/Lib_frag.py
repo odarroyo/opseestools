@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Nov  1 15:34:48 2023
 
-@author: Dirsa
-"""
 #%%
 
 import numpy as np                                                              # Importa librería estándar para operaciones matematicas.
@@ -188,4 +184,5 @@ def calculate_vulnerability(thetas,betas,ratios=[0.05,0.3,0.65,1.0],x = np.linsp
     return x,vul
 
     
+
     
