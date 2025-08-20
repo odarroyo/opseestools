@@ -1,22 +1,14 @@
 opseestools package
 ===================
 
-.. automodule:: opseestools.Lib_frag
-   :members:
-   :undoc-members:
-   :show-inheritance:
+Welcome to the opseestools package documentation. This package provides utilities for OpenSees analysis and modeling.
 
-.. automodule:: opseestools.analisis
-   :members:
-   :undoc-members:
-   :show-inheritance:
+Modules Overview
+----------------
 
-.. automodule:: opseestools.analisis3D
-   :members:
-   :undoc-members:
-   :show-inheritance:
+The package contains the following modules:
 
-.. automodule:: opseestools.utilidades
-   :members:
-   :undoc-members:
-   :show-inheritance:
+* :doc:`analisis` - Static and dynamic analysis functions
+* :doc:`analisis3D` - 3D analysis specific functions  
+* :doc:`utilidades` - Utility functions for modeling and post-processing
+* :doc:`Lib_frag` - Fragility analysis library
