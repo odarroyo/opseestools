@@ -37,6 +37,8 @@ import opstools.utilidades as ut (or any other name)
 
 import opstools.Lib_frag as ut (or any other name)
 
+opseestools documentation is available at: https://opseestools.readthedocs.io/en/latest/index.html
+
 ## Examples of use
 
 #### You can find Jupyter Notebooks and python scripts with examples of using the library on the examples folder in this GitHub repository. The list of examples are the following:
