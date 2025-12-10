@@ -79,6 +79,8 @@ Example 17: same as example 15 but for a 2D model created using opseestools func
 
 Example 18: same as example 17 but for a dynamic analysis.
 
+Example 19: demonstration of a new powerful function in the utilidades library: create_elements3D2, which allows creating columns and beams in a rectangular 3D grid with any free selection of the fiber sections
+
 ## Function help
 
 Each function has a docstring with help for the function, detailing the inputs and outputs. 
