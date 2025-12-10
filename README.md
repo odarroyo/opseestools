@@ -3,7 +3,7 @@
 This is a library to be used with OpenSeesPy.
 
 It includes a collection of analysis functions that are useful if you are analyzing frames or wall buildings both in two and three dimensions, storing the results in Python variables. 
-It also includes another useful tools for processing results and creating scripts
+It also includes another useful tools for processing results and creating scripts. Full documentation available at https://opseestools.readthedocs.io/en/latest/index.html 
 
 ## How to cite
 
