@@ -2396,14 +2396,7 @@ def dinamicoIDA4P(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,elem
         Relative displacement at each node in nodes_control. Each column correspond to a node and each row to an analysis instant.
     drift : numpy array
         Drift at story of the building. Each column correspond to a node and each row to an analysis instant.
-    Eds :
-        Numpy array with the forces in the elements (columns and beams). The order is determined by the order used in the input variable elements. The array has three dimensions. The first one is the element, the second one the pushover instant and the third one is the DOF.
-    Strains : numpy array
-        Strain at the macrofibers of the wall. Records eight.
-    cStress : numpy array
-        Concrete stress at the macrofibers of the wall. Records eight.
-    sStress : numpy array
-        Steel stress at the macrofibers of the wall. Records eight.
+
 
     '''
     # PARA SER UTILIZADO PARA CORRER EN PARALELO LOS SISMOS Y EXTRAYENDO LAS FUERZAS DE LOS ELEMENTOS INDICADOS EN ELEMENTS
@@ -3157,7 +3150,7 @@ def dinamicoIDA4PResidual(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrl
             node_disp[k+1,node_i] = nodeDisp(node_tag,1)
             node_vel[k+1,node_i] = nodeVel(node_tag,1)
             node_acel[k+1,node_i] = nodeAccel(node_tag,1)
-            accg[k+1,node_i]= acc[k] * 9.81
+            accg[k+1,node_i]= acc[k] * fact
             
                         
             if node_i != 0:

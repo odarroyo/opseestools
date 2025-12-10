@@ -708,7 +708,7 @@ def creategrid3D(xloc,yloc,zloc,dia=1,floor_mass=[1.0]):
             nfloor = df[df['floor']==z]
             nodes_floor = nfloor.nlabel.to_list()            
             fix(z,0,0,1,1,1,0)
-            mass(z,floor_mass[z-1],floor_mass[z-1],floor_mass[z-1],0.0,0.0,0.0)
+            mass(z,floor_mass[z-1],floor_mass[z-1],floor_mass[z-1],0.0,0.0,floor_mass[z-1]*(np.max(xloc)**2+np.max(yloc)**2)/12)
             rigidDiaphragm(3,z,*nodes_floor)
     
     return df
@@ -1318,7 +1318,12 @@ def create_elements3D(coordx,coordy,coordz,coltag,beamtagX,beamtagY,dia = 1):
                 TagColumns.append(eltag)
                 if type(coltag) == list:
                     element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag[z])
-                    sectag.append(coltag[z])    
+                    if floorwise == True:
+                        element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag[z][i][j])
+                        sectag.append(coltag[z][i][j])
+                    else:
+                        element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag[z])
+                        sectag.append(coltag[z])
                 else:    
                     element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag)
     # print(TagColumns)
@@ -1345,6 +1350,99 @@ def create_elements3D(coordx,coordy,coordz,coltag,beamtagX,beamtagY,dia = 1):
                 # print(nodeI,nodeJ,':',eltag)
     
     return TagColumns, TagVigasX, TagVigasY, sectag
+
+def create_elements3D2(coordx,coordy,coordz,coltag,beamtagX,beamtagY,dia = 1):
+    '''
+    Function to create columns and beam elements freely specifying different section for each element.
+    
+    Parameters
+    ----------
+    coordx : list
+        coordinates in X direction. Must have been used before in the creategrid() command.
+    coordy : list
+        coordinates in Y direction. Must have been used before in the creategrid() command.
+    coordZ : list
+        coordinates in Z direction. Must have been used before in the creategrid() command
+    coltag : integer or list
+        tag of the columns. IF the user inputs a list, it must be one column section per floor
+    beamtagX : integer
+        tag of the beams in X direction.
+    beamtagY : integer
+        tag of the beams in X direction.
+
+
+    Returns
+    -------
+    TagColumns : list
+        list containing lists of the tags of the columns per floor.
+    TagVigasX : list
+        list containing lists with the tags of the beams in the X direction per floor.
+    TagVigasY : list
+        list containing lists with the tags of the beams in the Y direction per floor.
+
+    '''
+           
+    coltrans = 1000000
+    vigXtrans = 2000000
+    vigYtrans = 3000000
+    geomTransf('PDelta',coltrans,*[0, -1, 0])
+    geomTransf('Linear',vigXtrans,*[0, -1, 0])
+    geomTransf('Linear',vigYtrans,*[1, 0, 0])
+    nx = len(coordx)
+    ny = len(coordy)
+    nz = len(coordz)
+    if type(coltag) == list:
+        if len(coltag) != nz-1:
+            print('ERROR: Number of column tags does not match number of floors')
+        
+    TagColumns = []
+    sectag = []
+    for i in range(nx):
+        for j in range(ny):
+            for z in range(nz-1):
+                nodeI = 10000*(i+1)+100*j+z
+                nodeJ = 10000*(i+1)+100*j+(z+1)
+                eltag = 10000*(z+1) + 100*i + j
+                TagColumns.append(eltag)
+                if type(coltag) == list:
+                    element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag[z][i][j])
+                    sectag.append(coltag[z])    
+                else:    
+                    element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag)
+    # print(TagColumns)
+    TagVigasX,secVX = [],[]
+    for z in range(1,nz):
+        for i in range(nx-1):
+            for j in range(ny): 
+                nodeI = 10000*(i+1)+100*j+z
+                nodeJ = 10000*(i+2)+100*j+z
+                eltag = -(1000000*z + 10000*(j+1) + 100*i)
+                TagVigasX.append(eltag)
+                if type(beamtagX) == list:
+                    element('forceBeamColumn',eltag,*[nodeI,nodeJ],vigXtrans,beamtagX[z-1][i][j])
+                    secVX.append(beamtagX[z-1][i][j])
+                else:
+                    element('forceBeamColumn',eltag,*[nodeI,nodeJ],vigXtrans,beamtagX)
+                    secVX.append(beamtagX)
+                # print(nodeI,nodeJ,':',eltag)
+                # print('viga ok')
+    TagVigasY,secVY = [],[]
+    for z in range(1,nz):
+        for i in range(nx):
+            for j in range(ny-1): 
+                nodeI = 10000*(i+1)+100*j+z
+                nodeJ = 10000*(i+1)+100*(j+1)+z
+                eltag = 10000000*z + 10000*(i+1) + 100*j
+                TagVigasY.append(eltag)
+                if type(beamtagY) == list:
+                    element('forceBeamColumn',eltag,*[nodeI,nodeJ],vigYtrans,beamtagY[z-1][i][j])
+                    secVY.append(beamtagY[z-1][i][j])
+                else:
+                    element('forceBeamColumn',eltag,*[nodeI,nodeJ],vigYtrans,beamtagY)
+                    secVY.append(beamtagY)
+                # print(nodeI,nodeJ,':',eltag)
+    
+    return TagColumns, TagVigasX, TagVigasY, sectag, secVX, secVY
 
 def load_beams(floor_load,roof_load,tagbeams,tag = 1):
     '''

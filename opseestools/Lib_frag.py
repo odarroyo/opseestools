@@ -141,7 +141,7 @@ def calculate_fragility(df,limit_name,limits,IM_column,EDP_column,plot=True):
         thetas.append(theta)
         betas.append(beta)
         if plot==True:
-            plt.plot(true_counts[IM_column],true_counts[lim]/ngm[i],'x')
+            plt.plot(true_counts[IM_column],true_counts[lim]/ngm,'x')
             plotfrag(theta, beta)
         
     if plot==True:
