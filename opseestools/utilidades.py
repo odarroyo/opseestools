@@ -8,6 +8,7 @@ from scipy.stats import gmean
 from scipy.fft import fft, ifft
 from scipy.integrate import cumulative_trapezoid
 import pandas as pd
+import itertools
 
 def MomentCurvature(secTag, axialLoad, maxK, numIncr=300):
     '''
@@ -708,7 +709,7 @@ def creategrid3D(xloc,yloc,zloc,dia=1,floor_mass=[1.0]):
             nfloor = df[df['floor']==z]
             nodes_floor = nfloor.nlabel.to_list()            
             fix(z,0,0,1,1,1,0)
-            mass(z,floor_mass[z-1],floor_mass[z-1],floor_mass[z-1],0.0,0.0,floor_mass[z-1]*(np.max(xloc)**2+np.max(yloc)**2)/12)
+            mass(z,floor_mass[z-1],floor_mass[z-1],floor_mass[z-1],0.0,0.0,floor_mass[z-1]*((np.max(xloc)**2 + np.max(yloc)**2)/12))
             rigidDiaphragm(3,z,*nodes_floor)
     
     return df
@@ -883,25 +884,15 @@ def dhakal(Fyy, Fuu, eyy, ehh, euu, Lb, Db):
     
     return s, e
 
-def residual_disp(drifts, npts):
-    """Calculates the residual drift of a structure after an earthquake.
-
-    Parameters
-    ----------
-    drifts : array-like
-        Drift values recorded during the seismic event.
-    npts : int
-        Number of points corresponding to the ground-motion duration.
-
-    Returns
-    -------
-    float
-        Mean absolute residual drift computed from the free-vibration response.
-
-    Notes
-    -----
-    This algorithm assumes a free-vibration period after the end of the record.
-    """
+def residual_disp(drifts,npts):
+    ''' Calcula el drift residual de una estructura sometida a un terremoto
+        Recibe dos entradas:
+            drifts contiene los drifts a lo largo del sismo
+            npts es el número de puntos hasta donde llega el registro
+        
+        Este algoritmo requiere que se haya corrido un periodo de vibración libre luego del final del registro
+        
+    '''
     freevib = drifts[npts:-1] # extrae los valores de drifts a partir de donde comenzó la vibración libre
     peaks_ind = argrelextrema(freevib, np.greater) # calcula los indices de los puntos de los máximos
     peaks_ind = peaks_ind[0]
@@ -1074,7 +1065,7 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
     Parameters
     ----------
     zone : String, optional
-        Detailing level. By default it is special detailing. User can input 'DMO' for an intermediate detailing of Colombian design code or PreCode for pre-code detailing.
+        Detailing level. By default it is special detailing. User can input 'DMO' for an intermediate detailing of Colombian design code.
     fy : Float, optional
         Steel yielding stress in MPa. The default is 420.
     fcn : Float, optional
@@ -1116,13 +1107,14 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
     ecu = e20_c
     
     if tension == 'tension':
-        uniaxialMaterial('Concrete02', unctag, fc, ec, fcu, ecu)
+        uniaxialMaterial('Concrete02', unctag, -fc, -ec, -fcu, -ecu, 0.1, 0.1*fc,0.1*Ec)
     else:
         uniaxialMaterial('Concrete01', unctag, fc, ec, fcu, ecu)
     
     if detailing == 'DMO':
         D = 12
         L = 8*D
+        
         s_steel1, e_steel1 = dhakal(fy_1, fu_1, ey_1, eh, eu, L, D)
         s1p1, s2p1, s3p1, s4p1, e1p1, e2p1, e3p1, e4p1 = s_steel1[0], s_steel1[1], s_steel1[2], s_steel1[3],e_steel1[0], e_steel1[1], e_steel1[2], e_steel1[3]
         s1n1, s2n1, s3n1, s4n1, e1n1, e2n1, e3n1, e4n1 = s_steel1[4], s_steel1[5], s_steel1[6], s_steel1[7],e_steel1[4], e_steel1[5], e_steel1[6], e_steel1[7]
@@ -1133,6 +1125,7 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
 
         # Para el concreto confinado
         k=1.25
+        
         fcc=fc*k
         Ec = 4400*np.sqrt(fcc/1000)*1000
         ecc= 2*fcc/Ec
@@ -1140,7 +1133,7 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
         e20_cc = e20Lobatto2(2*fcn*k, 3000, 5, fcn*k, Ec/1000, ecc)
         eucc=e20_cc
         if tension == 'tension':
-            uniaxialMaterial('Concrete02', conftag, fcc, ecc, fucc, eucc)
+            uniaxialMaterial('Concrete02', conftag, -fcc, -ecc, -fucc, -eucc, 0.1, 0.1*fcc,0.1*Ec)
         else:
             uniaxialMaterial('Concrete01', conftag, fcc, ecc, fucc, eucc) 
     
@@ -1157,7 +1150,7 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
             uniaxialMaterial('Hysteretic',steeltag,s1p1,e1p1,s3p1,e3p1,s4p1,e4p1,s1n1,e1n1,s2n1,e2n1,s4n1,e4n1,1.0,1.0,0.0,0.0)
 
         # Para el concreto confinado
-        
+        k=1.25
         k=1.01
         fcc=fc*k
         Ec = 4400*np.sqrt(fcc/1000)*1000
@@ -1166,10 +1159,10 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
         e20_cc = e20Lobatto2(2*fcn*k, 3000, 5, fcn*k, Ec/1000, ecc)
         eucc=e20_cc
         if tension == 'tension':
-            uniaxialMaterial('Concrete02', conftag, fcc, ecc, fucc, eucc)
+            uniaxialMaterial('Concrete02', conftag, -fcc, -ecc, -fucc, -eucc, 0.1, 0.1*fcc,0.1*Ec)
         else:
             uniaxialMaterial('Concrete01', conftag, fcc, ecc, fucc, eucc) 
-       
+    
     elif detailing =='DES':
         D = 12
         L = 6*D
@@ -1189,7 +1182,7 @@ def col_materials(fcn=28,fy=420,detailing='DES',tension = 'tension',steeltag = i
         e20_cc = e20Lobatto2(2*fcn*k, 3000, 5, fcn*k, Ec/1000, ecc)
         eucc=e20_cc
         if tension == 'tension':
-            uniaxialMaterial('Concrete02', conftag, fcc, ecc, fucc, eucc)
+            uniaxialMaterial('Concrete02', conftag, -fcc, -ecc, -fucc, -eucc, 0.1, 0.1*fcc,0.1*Ec)
         else:
             uniaxialMaterial('Concrete01', conftag, fcc, ecc, fucc, eucc)
     return [unctag,conftag,steeltag]
@@ -1262,6 +1255,83 @@ def create_elements(coordx,coordy,coltag,beamtag,dia = 1):
                     
     return TagColumns, TagVigas
 
+def create_elements2(coordx,coordy,coltag,beamtag,output = 0):
+    '''
+    Function to create columns and beam elements. By default it uses one column and one beam.
+    
+    Parameters
+    ----------
+    coordx : list
+        coordinates in X direction. Must have been used before in the creategrid() command.
+    coordy : list
+        coordinates in Y direction. Must have been used before in the creategrid() command.
+    coltag : integer
+        tag of the columns.
+    beamtag : integer
+        tag of the beams.
+    dia : integer, optional
+        Use 1 if you want a rigid diaphragm, any number if you don't. The default is 1.
+
+    Returns
+    -------
+    TagColumns : list
+        list with the tags of the columns.
+    TagVigas : list
+        list with the tags of the beams.
+
+    '''
+    lineal = 1
+    geomTransf('Linear',lineal)
+    pdelta = 2
+    geomTransf('PDelta',pdelta)
+    nx = len(coordx)
+    ny = len(coordy)
+    TagColumns, TagBeams = [],[] # para guardar los tags de los elementos
+    secCols, secBeams = [],[] # para guardar los tags de las secciones de cada elemento 
+    # Check type of coltag and create coltag2
+    if isinstance(coltag, int):
+        coltag2 = [coltag] * (ny - 1)
+    else:
+        coltag2 = coltag
+    
+    # Check if coltag2 has enough elements
+    if len(coltag2) < (ny - 1):
+        raise ValueError(f"coltag must have at least {ny - 1} elements for {ny - 1} column levels, but got {len(coltag2)} elements")
+     
+    for i in range(ny-1):
+        for j in range(nx):
+            if coltag2[i][j] != 'None':
+                nodeI = 1000*(j+1)+i
+                nodeJ = 1000*(j+1)+(i+1)
+                eltag = 100*(j+1) + i
+                TagColumns.append(eltag)
+                element('forceBeamColumn',eltag,nodeI,nodeJ,pdelta,coltag2[i][j])
+                secCols.append(coltag2[i][j])
+                if output != 0:
+                    print('column element: ',eltag,' section: ',coltag2[i][j])
+                    
+    
+    for i in range(1,ny):
+        for j in range(nx-1):
+            if beamtag[i-1][j] != 'None':
+                nodeI = 1000*(j+1)+i
+                nodeJ = 1000*(j+2)+i
+                eltag = 10000*(j+1) + i
+                TagBeams.append(eltag)
+                element('forceBeamColumn',eltag,nodeI,nodeJ,lineal,beamtag[i-1][j])
+                secBeams.append(beamtag[i-1][j])
+                if output != 0:
+                    print('beam element: ',eltag,' section: ',beamtag[i-1][j])
+            
+    column_info = np.array([TagColumns,secCols]).transpose()
+    beam_info = np.array([TagBeams,secBeams]).transpose()
+    dic_cols = {'column_tag':TagColumns, 'column_section':secCols}
+    df_cols = pd.DataFrame(dic_cols)
+    dic_beams = {'column_tag':TagBeams, 'column_section':secBeams}
+    df_beams = pd.DataFrame(dic_beams)
+    return TagColumns,TagBeams,df_cols, df_beams
+
+
 
 
 def create_elements3D(coordx,coordy,coordz,coltag,beamtagX,beamtagY,dia = 1):
@@ -1318,12 +1388,7 @@ def create_elements3D(coordx,coordy,coordz,coltag,beamtagX,beamtagY,dia = 1):
                 TagColumns.append(eltag)
                 if type(coltag) == list:
                     element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag[z])
-                    if floorwise == True:
-                        element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag[z][i][j])
-                        sectag.append(coltag[z][i][j])
-                    else:
-                        element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag[z])
-                        sectag.append(coltag[z])
+                    sectag.append(coltag[z])    
                 else:    
                     element('forceBeamColumn',eltag,nodeI,nodeJ,coltrans,coltag)
     # print(TagColumns)
@@ -1353,7 +1418,7 @@ def create_elements3D(coordx,coordy,coordz,coltag,beamtagX,beamtagY,dia = 1):
 
 def create_elements3D2(coordx,coordy,coordz,coltag,beamtagX,beamtagY,dia = 1):
     '''
-    Function to create columns and beam elements freely specifying different section for each element.
+    Function to create columns and beam elements. By default it uses one column and one beam.
     
     Parameters
     ----------
@@ -1374,11 +1439,11 @@ def create_elements3D2(coordx,coordy,coordz,coltag,beamtagX,beamtagY,dia = 1):
     Returns
     -------
     TagColumns : list
-        list containing lists of the tags of the columns per floor.
+        list with the tags of the columns.
     TagVigasX : list
-        list containing lists with the tags of the beams in the X direction per floor.
+        list with the tags of the beams in the X direction.
     TagVigasY : list
-        list containing lists with the tags of the beams in the Y direction per floor.
+        list with the tags of the beams in the Y direction.
 
     '''
            
@@ -1471,7 +1536,52 @@ def load_beams(floor_load,roof_load,tagbeams,tag = 1):
     pattern('Plain',tag,tag)
     eleLoad('-ele',*floor_tags,'-type','beamUniform',floor_load)
     eleLoad('-ele',*roof_tags,'-type','beamUniform',roof_load)
+
+def remove_hanging_nodes(tagcols,tagbeams):
+    building_elements = tagcols+tagbeams
+    nodes_elements = [eleNodes(i) for i in building_elements]
+    nodes_eles = np.array(nodes_elements)
+    nodes_eles_flatten = nodes_eles.flatten()
+    nodes_model = np.array(getNodeTags())
+    hanging_nodes = np.setdiff1d(nodes_model, nodes_eles_flatten).tolist()
+    for hn in hanging_nodes:
+        remove('node',int(hn))
+
+def load_beams2(beam_loads,tagbeams,tag = 1,output=0):
+    '''
+    Loads the beams of the model
+
+    Parameters
+    ----------
+    beam_loads : list. 
+        values of the loads
+    tagbeams : list
+        tags of the beams. If you want it to work properly use the same tags generated by the create_elements function.
+    tag : integer, optional
+        Integer to assign to the tag of the load pattern. The default is 1.
+
+    Returns
+    -------
+    None.
+
+    '''
     
+    
+    beam_loads_flatten = list(itertools.chain.from_iterable(beam_loads))
+    timeSeries('Linear', tag)
+    pattern('Plain',tag,tag)
+    if len(beam_loads_flatten) != len(tagbeams):
+        print('number of beam loads and beams dont match') # stop here don't continue
+    else:
+        print('number matches, creating loads')
+        # ut.load_beams2(beam_loads,tagbeams,output=1)
+        for beam_load,beam_tag in zip(beam_loads_flatten,tagbeams):
+            # print('adding load for beam: ',beam_tag)
+            eleLoad('-ele',int(beam_tag),'-type','beamUniform',beam_load)
+            if output != 0:
+                print('beam: ',beam_tag,' loaded with: ',beam_load)
+
+
 def load_beams3D(floor_load_x, roof_load_x, floor_load_y, roof_load_y, tagbeamsX, tagbeamsY, coordx, coordy, tag = 1):
     '''
     Function to add loads to the beams. Inputs for tags must be the ones from the create_elements3D command
@@ -1513,7 +1623,30 @@ def load_beams3D(floor_load_x, roof_load_x, floor_load_y, roof_load_y, tagbeamsX
     eleLoad('-ele',*floory,'-type','beamUniform',floor_load_y,0.0)
     eleLoad('-ele',*roofx,'-type','beamUniform',roof_load_x,0.0)
     eleLoad('-ele',*roofy,'-type','beamUniform',roof_load_y,0.0)
-    
+
+def apply_diaphragms(floor_diaphragms,output=0):
+    for index,diaf in enumerate(floor_diaphragms):
+        model_nodes_updated = np.array(getNodeTags())
+        if diaf == 1:
+            print('Creating diaphragm for floor: ', index+1)
+            floor_number = index+1
+            index_np1 = model_nodes_updated%(1000)==floor_number
+            nodes_floor = list(model_nodes_updated[index_np1])
+            for i in range(1,len(nodes_floor)):
+                equalDOF(int(nodes_floor[0]),int(nodes_floor[i]),1)
+                if output != 0:
+                    print('master node: ',nodes_floor[0], 'slave node: ',nodes_floor[i])
+
+def find_leftmost_nodes(coordy):
+    leftmost_nodes = []
+    model_nodes_updated = np.array(getNodeTags())
+    for index in range(len(coordy)-1):
+        floor_number = index+1
+        index_np1 = model_nodes_updated%(1000)==floor_number
+        nodes_floor = list(model_nodes_updated[index_np1])
+        leftmost_nodes.append(nodes_floor[0])  
+    return leftmost_nodes
+
     
 def pushover_loads(coordy, tag_pattern = 1001, nodes = 0):
     '''
@@ -1543,7 +1676,7 @@ def pushover_loads(coordy, tag_pattern = 1001, nodes = 0):
             load(int(1001+i),coordy[i+1]/suma,0,0)
     else:
         for i in range(puntos):
-            load(nodes[i],coordy[i+1]/suma,0,0)
+            load(int(nodes[i]),coordy[i+1]/suma,0,0)
             
 def pushover_loads3D(coordz, pushdir = 'x', tag_pattern = 1001, nodes = 0):
     '''

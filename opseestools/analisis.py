@@ -805,6 +805,120 @@ def pushover2D(Dmax,Dincr,IDctrlNode,IDctrlDOF,nodes_control,norm=[-1,1],Tol=1e-
     
     return techo, V, drift
 
+def pushover2DRot(Dmax,Dincr,IDctrlNode,IDctrlDOF,nodes_control,elements,Tol=1e-4):
+    '''
+    Performs a pushover analysis extracting the inter-story drifts
+    
+    Parameters
+    ----------
+    Dmax : float
+        Maximum displacement of the pushover.
+    Dincr : float
+        Increment in the displacement.
+    IDctrlNode : int
+        control node for the displacements.
+    IDctrlDOF : int
+        DOF for the displacement.
+    nodes_control : list
+        nodes to compute displacements and inter-story drift. You must input one per floor, otherwise you'll get an error.
+    elements: list
+        elements to record rotations
+    norm : list, optional
+        List that includes the roof displacement and the building weight to normalize the pushover and display the roof drift vs V/W plot. The default is [-1,1].
+    Tol : float, optional
+        Norm tolerance. The default is 1e-8.
+
+    Returns
+    -------
+    techo : float
+        Numpy array with the roof displacement recorded during the Pushover..
+    V : float
+        Numpy array with the base shear (when using an unitary patter) recorded during the Pushover. If pattern if not unitary it returns the multiplier.
+    drift : float
+        Numpy array with the interstory drif of each building story at each pushover instant. Columns are the nodes and rows are pushover instants..
+    Prot : float
+        Numpy array with the rotations
+        
+    '''
+    # creación del recorder de techo y definición de la tolerancia
+    # recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
+    maxNumIter = 10
+         
+    # configuración básica del análisis
+    wipeAnalysis()
+    constraints('Plain')
+    numberer('RCM')
+    system('BandGeneral')
+    test('NormUnbalance', Tol, maxNumIter)
+    algorithm('Newton')    
+    integrator('DisplacementControl', IDctrlNode, IDctrlDOF, Dincr)
+    analysis('Static')
+    
+    # Otras opciones de análisis    
+    tests = {1:'NormDispIncr', 2: 'RelativeEnergyIncr', 4: 'RelativeNormUnbalance',5: 'RelativeNormDispIncr', 6: 'NormUnbalance'}
+    algoritmo = {1:'KrylovNewton', 2: 'SecantNewton' , 4: 'RaphsonNewton',5: 'PeriodicNewton', 6: 'BFGS', 7: 'Broyden', 8: 'NewtonLineSearch'}
+
+    # rutina del análisis
+    nels = len(elements)
+    nnodos = len(nodes_control)
+    Nsteps =  int(Dmax/ Dincr) 
+    dtecho = [nodeDisp(IDctrlNode,IDctrlDOF)]
+    Vbasal = [getTime()]
+    node_disp = np.zeros((Nsteps + 1, nnodos)) # para grabar los desplazamientos de los nodos
+    drift = np.zeros((Nsteps + 1, nnodos - 1)) # para grabar la deriva de entrepiso
+    Prot = np.zeros((nels, Nsteps+1, 3)) # para grabar las rotaciones de los elementos
+    
+    for k in range(Nsteps):
+        ok = analyze(1)
+        # ok2 = ok;
+        # En caso de no converger en un paso entra al condicional que sigue
+        if ok != 0:
+            print('configuración por defecto no converge en desplazamiento: ',nodeDisp(IDctrlNode,IDctrlDOF))
+            for j in algoritmo:
+                if j < 4:
+                    algorithm(algoritmo[j], '-initial')
+    
+                else:
+                    algorithm(algoritmo[j])
+                
+                # el test se hace 50 veces más
+                test('NormUnbalance', Tol, maxNumIter*50)
+                ok = analyze(1)
+                if ok == 0:
+                    # si converge vuelve a las opciones iniciales de análisi
+                    test('NormUnbalance', Tol, maxNumIter)
+                    algorithm('Newton')
+                    break
+                    
+        if ok != 0:
+            print('Pushover analisis fallido')
+            print('Desplazamiento alcanzado: ',nodeDisp(IDctrlNode,IDctrlDOF),'m')
+            break
+        
+        for node_i, node_tag in enumerate(nodes_control):
+            
+            node_disp[k+1,node_i] = nodeDisp(node_tag,1)
+            if node_i != 0:
+                drift[k+1,node_i-1] = (nodeDisp(node_tag,1) - nodeDisp(nodes_control[node_i-1],1))/(nodeCoord(node_tag,2) - nodeCoord(nodes_control[node_i-1],2))
+                
+        for el_i, ele_tag in enumerate(elements):
+            
+            Prot[el_i , k+1, :] = [eleResponse(ele_tag,'plasticDeformation')[0],
+                                  eleResponse(ele_tag,'plasticDeformation')[1],
+                                  eleResponse(ele_tag,'plasticDeformation')[2]]
+            
+        dtecho.append(nodeDisp(IDctrlNode,IDctrlDOF))
+        Vbasal.append(getTime())
+        
+    plt.figure()
+    plt.plot(dtecho,Vbasal)
+    plt.xlabel('desplazamiento de techo (m)')
+    plt.ylabel('corte basal (kN)')
+    
+    techo = np.array(dtecho)
+    V = np.array(Vbasal)
+    
+    return techo, V, drift, Prot
 
 def pushover2C(displ,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-4):
     '''
