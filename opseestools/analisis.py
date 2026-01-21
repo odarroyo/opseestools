@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""Analysis routines for structural models using OpenSeesPy."""
 
 from openseespy.opensees import *
 import matplotlib.pyplot as plt
@@ -1029,8 +1030,15 @@ def pushover2C(displ,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-4):
     
     return techo, V
 
-def pushover2MP(Dmax,Dincr,IDctrlNode,IDctrlDOF,norm=[-1,1],Tol=1e-8):
-    
+def pushover2MP(Dmax, Dincr, IDctrlNode, IDctrlDOF, norm=[-1, 1], Tol=1e-8):
+    """Run pushover analysis with elevated iteration limits.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        Roof displacement history and base shear values.
+    """
+
     # creación del recorder de techo y definición de la tolerancia
     recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
     maxNumIter = 20
@@ -1396,36 +1404,35 @@ def pushover3T(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
 
 
 
-def pushover3Tn(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
-    
+def pushover3Tn(Dmax, Dincr, IDctrlNode, IDctrlDOF, elements, norm=[-1, 1], Tol=1e-8):
+    """Perform pushover analysis tracking periods and element forces."""
+
     # creación del recorder de techo y definición de la tolerancia
     recorder('Node','-file','techo.out','-time','-node',IDctrlNode,'-dof',IDctrlDOF,'disp')
     maxNumIter = 10
-    
-      
+
     # configuración básica del análisis
     wipeAnalysis()
     constraints('Plain')
     numberer('RCM')
     system('BandGeneral')
     test('EnergyIncr', Tol, maxNumIter)
-    algorithm('Newton')    
+    algorithm('Newton')
     integrator('DisplacementControl', IDctrlNode, IDctrlDOF, Dincr)
     analysis('Static')
-    
-    # Otras opciones de análisis    
+
+    # Otras opciones de análisis
     tests = {1:'NormDispIncr', 2: 'RelativeEnergyIncr', 4: 'RelativeNormUnbalance',5: 'RelativeNormDispIncr', 6: 'NormUnbalance'}
     algoritmo = {1:'KrylovNewton', 2: 'SecantNewton' , 4: 'RaphsonNewton',5: 'PeriodicNewton', 6: 'BFGS', 7: 'Broyden', 8: 'NewtonLineSearch'}
 
     # rutina del análisis
     eig = eigen(1)
     TT = 2*3.1416/np.sqrt(eig[0])
-    Nsteps =  int(Dmax/ Dincr) 
+    Nsteps =  int(Dmax/ Dincr)
     dtecho = [nodeDisp(IDctrlNode,IDctrlDOF)]
     Vbasal = [getTime()]
     periods = [TT]
-    
-    
+
     nels = len(elements)
     Eds = np.zeros((nels, Nsteps+1, 6)) # para grabar las fuerzas de los elementos
     Curv = np.zeros((nels,Nsteps+1)) # para grabar la curvatura de los elementos
@@ -1564,8 +1571,9 @@ def pushover3Tn(Dmax,Dincr,IDctrlNode,IDctrlDOF,elements,norm=[-1,1],Tol=1e-8):
 # dinamicoIDA4 PARA SER UTILIZADO PARA CORRER EN PARALELO LOS SISMOS Y EXTRAYENDO LAS FUERZAS DE LOS ELEMENTOS INDICADOS EN ELEMENTS. SOLO PUEDEN SER LOS MUROS DE MOMENTO. También extrae desplazamientos de los nodos, aceleraciones, derivas, velocidades, esfuerzos en concreto, acero y deformaciones unitarias de cada muro indicado en elements
 # dinamicoIDA5 es lo mismo que IDA4, pero en lugar del nombre del registro, recibe una lista con las aceleraciones.
 
-def dinamico(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes = [0,2],Kswitch = 1,Tol=1e-4):
-    
+def dinamico(recordName, dtrec, nPts, dtan, fact, damp, IDctrlNode, IDctrlDOF, modes=[0, 2], Kswitch=1, Tol=1e-4):
+    """Run dynamic analysis for a single ground-motion record."""
+
     # record es el nombre del registro, incluyendo extensión. P.ej. GM01.txt
     # dtrec es el dt del registro
     # nPts es el número de puntos del análisis
@@ -1795,8 +1803,9 @@ def dinamicoIDA(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes 
     # tiempo = np.array(t)
     wipe()
    
-def dinamicoAnim(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes = [0,2],Kswitch = 1,Tol=1e-8):
-    
+def dinamicoAnim(recordName, dtrec, nPts, dtan, fact, damp, IDctrlNode, IDctrlDOF, modes=[0, 2], Kswitch=1, Tol=1e-8):
+    """Run dynamic analysis storing results for animation."""
+
     # record es el nombre del registro, incluyendo extensión. P.ej. GM01.txt
     # dtrec es el dt del registro
     # nPts es el número de puntos del análisis
@@ -2848,44 +2857,47 @@ def dinamicoIDA5(acceleration,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,ele
     wipe()
     return tiempo,techo,Eds,Strains,cStress,sStress,node_disp,node_vel,node_acel,drift
 
-def dinamicoIDA2DB(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,modes = [0,2],Kswitch = 1,Tol=1e-3, odb = 1, odbtag = 1000):
-    import opstool as opst
-    '''  
-    Performs a dynamic analysis recording the displacement of a user selected node.
-    
+def dinamicoIDA2DB(recordName, dtrec, nPts, dtan, fact, damp, IDctrlNode, IDctrlDOF, modes=[0, 2], Kswitch=1, Tol=1e-3, odb=1, odbtag=1000):
+    """Perform dynamic analysis recording the displacement of a selected node.
+
     Parameters
     ----------
     recordName : string
-        Name of the record including file extension (i.e., 'GM01.txt'). It must have one record instant per line. 
+        Name of the record including file extension (i.e., 'GM01.txt'). It must have one record instant per line.
     dtrec : float
-        time increment of the record.
+        Time increment of the record.
     nPts : integer
-        number of points of the record.
+        Number of points of the record.
     dtan : float
-        time increment to be used in the analysis. If smaller than dtrec, OpenSeesPy interpolates.
+        Time increment to be used in the analysis. If smaller than dtrec, OpenSeesPy interpolates.
     fact : float
-        scale factor to apply to the record.
+        Scale factor to apply to the record.
     damp : float
         Damping percentage in decimal (i.e., use 0.03 for 3%).
     IDctrlNode : int
-        control node for the displacements.
+        Control node for the displacements.
     IDctrlDOF : int
         DOF for the displacement.
     modes : list, optional
-        Modes of the structure to apply the Rayleigh damping. The default is [0,2] which uses the first and third mode.
+        Modes of the structure to apply the Rayleigh damping. The default is [0, 2].
     Kswitch : int, optional
-        Use it to define which stiffness matrix should be used for the ramping. The default is 1 that uses initial stiffness. Input 2 for current stifness.
+        Defines which stiffness matrix is used for damping. Default is 1 for initial stiffness.
     Tol : float, optional
-        Tolerance for the analysis. The default is 1e-4 because it uses the NormUnbalance test.
+        Tolerance for the analysis. Default is 1e-4 using the NormUnbalance test.
+    odb : int, optional
+        Flag to write OpenSees database. Default is 1.
+    odbtag : int, optional
+        Tag for the database. Default is 1000.
 
     Returns
     -------
     tiempo : numpy array
-        Numpy array with analysis time.
+        Analysis time history.
     techo : numpy array
         Displacement of the control node.
+    """
+    import opstool as opst
 
-    '''
     # PARA SER UTILIZADO PARA CORRER EN PARALELO LOS SISMOS
     
     # record es el nombre del registro, incluyendo extensión. P.ej. GM01.txt
@@ -3538,7 +3550,8 @@ def dinamicoIDA4R(recordName,dtrec,nPts,dtan,fact,damp,IDctrlNode,IDctrlDOF,colu
 
 #%% ============================ FUNCIONES REMOVAL ============================
 
-def removal(nodeI,nodeJ,ele,der):
+def removal(nodeI, nodeJ, ele, der):
+    """Remove element if drift ratio exceeds threshold."""
     fuerza=0
     d1= nodeDisp(nodeI,1)
     d2= nodeDisp(nodeJ,1)
@@ -3551,7 +3564,8 @@ def removal(nodeI,nodeJ,ele,der):
         fuerza = eleForce(ele,1)
     return fuerza
 
-def removalTH(nodeI,nodeJ,ele,der):
+def removalTH(nodeI, nodeJ, ele, der):
+    """Remove element when drift limit is exceeded and return force and flag."""
     fuerza = 0
     flag = 0
     d1= nodeDisp(nodeI,1)
@@ -3564,10 +3578,11 @@ def removalTH(nodeI,nodeJ,ele,der):
         flag = 1
     else:
         fuerzax = eleForce(ele,1,2,3)
-       
+
     return fuerzax,flag
-            
-def removalTH2(nodeI,nodeJ,ele,der):
+
+def removalTH2(nodeI, nodeJ, ele, der):
+    """Remove paired elements when drift limit is exceeded."""
     fuerza1 = [0]*6
     fuerza2 = [0]*6
     flag = 0
